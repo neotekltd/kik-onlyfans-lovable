@@ -17,7 +17,8 @@ import {
   Heart,
   DollarSign,
   Image as ImageIcon,
-  Play
+  Play,
+  MessageCircle
 } from 'lucide-react';
 
 const Messages = () => {
