@@ -55,24 +55,30 @@ const Dashboard: React.FC = () => {
               avatar_url,
               bio,
               is_verified
-            ),
-            creator_profiles!user_subscriptions_creator_id_fkey (
-              subscription_price,
-              total_subscribers,
-              content_categories
             )
           `)
           .eq('subscriber_id', user.id)
           .eq('status', 'active');
 
-        const creators = subscriptions?.map(sub => ({
-          ...sub.profiles,
-          subscriber_count: sub.creator_profiles?.total_subscribers,
-          subscription_price: sub.creator_profiles?.subscription_price,
-          categories: sub.creator_profiles?.content_categories,
-        })) || [];
+        // Get creator profile data separately for each subscribed creator
+        const creatorsWithStats = await Promise.all(
+          (subscriptions || []).map(async (sub) => {
+            const { data: creatorProfile } = await supabase
+              .from('creator_profiles')
+              .select('subscription_price, total_subscribers, content_categories')
+              .eq('user_id', sub.creator_id)
+              .single();
 
-        setSubscribedCreators(creators);
+            return {
+              ...sub.profiles,
+              subscriber_count: creatorProfile?.total_subscribers || 0,
+              subscription_price: creatorProfile?.subscription_price || 0,
+              categories: creatorProfile?.content_categories || [],
+            };
+          })
+        );
+
+        setSubscribedCreators(creatorsWithStats);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -225,7 +231,7 @@ const Dashboard: React.FC = () => {
                         {subscribedCreators.slice(0, 3).map((creator) => (
                           <div key={creator.id} className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-50 to-creator-50 flex items-center justify-center">
-                              {creator.display_name.charAt(0)}
+                              {creator.display_name?.charAt(0) || '?'}
                             </div>
                             <div className="flex-1">
                               <p className="font-medium text-sm">{creator.display_name}</p>

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 const Sidebar = () => {
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -28,7 +28,7 @@ const Sidebar = () => {
     { icon: MessageCircle, label: 'Messages', path: '/messages', badge: '24' },
     { icon: Bell, label: 'Notifications', path: '/notifications', badge: '5' },
     { icon: User, label: 'Profile', path: '/profile' },
-    ...(user?.isCreator ? [
+    ...(profile?.is_creator ? [
       { icon: Camera, label: 'Creator Studio', path: '/creator' },
       { icon: TrendingUp, label: 'Analytics', path: '/analytics' },
       { icon: DollarSign, label: 'Earnings', path: '/earnings' }
@@ -58,13 +58,13 @@ const Sidebar = () => {
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center space-x-3">
           <Avatar className="h-12 w-12">
-            <AvatarImage src={user?.avatar} />
-            <AvatarFallback>{user?.displayName?.charAt(0)}</AvatarFallback>
+            <AvatarImage src={profile?.avatar_url} />
+            <AvatarFallback>{profile?.display_name?.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900 truncate">{user?.displayName}</p>
-            <p className="text-sm text-gray-500 truncate">@{user?.username}</p>
-            {user?.isCreator && (
+            <p className="font-semibold text-gray-900 truncate">{profile?.display_name}</p>
+            <p className="text-sm text-gray-500 truncate">@{profile?.username}</p>
+            {profile?.is_creator && (
               <Badge variant="secondary" className="mt-1 text-xs">
                 Creator
               </Badge>
@@ -102,10 +102,10 @@ const Sidebar = () => {
       <div className="p-4 border-t border-gray-200">
         <Button 
           className="w-full gradient-bg hover:opacity-90 mb-3"
-          onClick={() => navigate(user?.isCreator ? '/creator' : '/dashboard')}
+          onClick={() => navigate(profile?.is_creator ? '/creator' : '/dashboard')}
         >
           <Camera className="h-4 w-4 mr-2" />
-          {user?.isCreator ? 'New Post' : 'Explore'}
+          {profile?.is_creator ? 'New Post' : 'Explore'}
         </Button>
         
         <Button 

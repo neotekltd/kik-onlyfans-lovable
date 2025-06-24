@@ -9,11 +9,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Camera, Heart, MessageCircle, Star, Users, Edit, Settings } from 'lucide-react';
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, profile, creatorProfile } = useAuth();
 
   const profileStats = [
-    { label: 'Posts', value: '156' },
-    { label: 'Subscribers', value: user?.subscriberCount?.toString() || '0' },
+    { label: 'Posts', value: creatorProfile?.total_posts?.toString() || '0' },
+    { label: 'Subscribers', value: creatorProfile?.total_subscribers?.toString() || '0' },
     { label: 'Likes', value: '12.5K' },
     { label: 'Following', value: '89' }
   ];
@@ -39,20 +39,20 @@ const Profile = () => {
             <CardContent className="relative pb-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-end space-y-4 sm:space-y-0 sm:space-x-6 -mt-16">
                 <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
-                  <AvatarImage src={user?.avatar} />
-                  <AvatarFallback className="text-2xl">{user?.displayName?.charAt(0)}</AvatarFallback>
+                  <AvatarImage src={profile?.avatar_url} />
+                  <AvatarFallback className="text-2xl">{profile?.display_name?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 
                 <div className="flex-1 sm:mt-16">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
-                        <span>{user?.displayName}</span>
-                        {user?.isCreator && (
+                        <span>{profile?.display_name}</span>
+                        {profile?.is_creator && (
                           <Badge className="bg-creator-500">Creator</Badge>
                         )}
                       </h1>
-                      <p className="text-gray-600">@{user?.username}</p>
+                      <p className="text-gray-600">@{profile?.username}</p>
                     </div>
                     
                     <div className="flex space-x-2 mt-4 sm:mt-0">
@@ -67,7 +67,7 @@ const Profile = () => {
                   </div>
                   
                   <p className="text-gray-700 mt-2">
-                    {user?.isCreator 
+                    {profile?.is_creator 
                       ? "Premium content creator sharing exclusive photos and videos. Subscribe for daily updates! 💕" 
                       : "Enjoying amazing content from my favorite creators! ❤️"
                     }
@@ -147,29 +147,27 @@ const Profile = () => {
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-2">Bio</h4>
                     <p className="text-gray-700">
-                      {user?.isCreator 
+                      {profile?.bio || (profile?.is_creator 
                         ? "Professional content creator passionate about photography and connecting with fans. I love creating unique and exclusive content that tells a story. Subscribe to get access to my premium photos, videos, and behind-the-scenes content!"
                         : "Content enthusiast who loves discovering amazing creators and supporting their work. Always looking for new and exciting content!"
-                      }
+                      )}
                     </p>
                   </div>
                   
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-2">Joined</h4>
-                    <p className="text-gray-700">December 2023</p>
+                    <p className="text-gray-700">
+                      {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'December 2023'}
+                    </p>
                   </div>
                   
-                  {user?.isCreator && (
+                  {profile?.is_creator && creatorProfile && (
                     <div>
-                      <h4 className="font-semibold text-gray-900 mb-2">Subscription Tiers</h4>
+                      <h4 className="font-semibold text-gray-900 mb-2">Subscription Price</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <span className="font-medium">Basic Access</span>
-                          <Badge variant="outline">$9.99/month</Badge>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <span className="font-medium">Premium Access</span>
-                          <Badge variant="outline">$19.99/month</Badge>
+                          <span className="font-medium">Monthly Access</span>
+                          <Badge variant="outline">${(creatorProfile.subscription_price / 100).toFixed(2)}/month</Badge>
                         </div>
                       </div>
                     </div>
@@ -184,7 +182,7 @@ const Profile = () => {
                   <CardTitle>Reviews & Ratings</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {user?.isCreator ? (
+                  {profile?.is_creator ? (
                     <div className="space-y-4">
                       <div className="flex items-center space-x-4">
                         <div className="text-3xl font-bold">4.8</div>
