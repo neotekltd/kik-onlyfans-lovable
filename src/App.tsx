@@ -13,6 +13,11 @@ import Messages from "./pages/Messages";
 import Profile from "./pages/Profile";
 import Creator from "./pages/Creator";
 import Subscriptions from "./pages/Subscriptions";
+import Analytics from "./pages/Analytics";
+import Earnings from "./pages/Earnings";
+import Collections from "./pages/Collections";
+import Notifications from "./pages/Notifications";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -39,6 +44,11 @@ const App = () => (
                 <Messages />
               </ProtectedRoute>
             } />
+            <Route path="/notifications" element={
+              <ProtectedRoute>
+                <Notifications />
+              </ProtectedRoute>
+            } />
             <Route path="/profile/:userId?" element={
               <ProtectedRoute>
                 <Profile />
@@ -49,9 +59,29 @@ const App = () => (
                 <Creator />
               </ProtectedRoute>
             } />
+            <Route path="/analytics" element={
+              <ProtectedRoute>
+                <Analytics />
+              </ProtectedRoute>
+            } />
+            <Route path="/earnings" element={
+              <ProtectedRoute>
+                <Earnings />
+              </ProtectedRoute>
+            } />
             <Route path="/subscriptions" element={
               <ProtectedRoute>
                 <Subscriptions />
+              </ProtectedRoute>
+            } />
+            <Route path="/collections" element={
+              <ProtectedRoute>
+                <Collections />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
