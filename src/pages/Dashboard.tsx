@@ -1,335 +1,288 @@
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import Sidebar from '@/components/Sidebar';
+import { useCreatorStats } from '@/hooks/useCreatorStats';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { DollarSign, Users, Heart, TrendingUp, Camera, MessageCircle, Bell, Settings } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import PostCard from '@/components/PostCard';
+import CreatorCard from '@/components/CreatorCard';
+import { DollarSign, Users, Heart, TrendingUp, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-const Dashboard = () => {
-  const { user } = useAuth();
-  const [posts] = useState([
-    {
-      id: '1',
-      creator: {
-        name: 'Autumn Ren',
-        username: '@autumnren',
-        avatar: '/placeholder.svg',
-        verified: true
-      },
-      content: "Just uploaded some amazing new content! 💕 Can't wait for you all to see it...",
-      timestamp: '3:50 pm',
-      likes: 234,
-      comments: 45,
-      isSubscribed: true,
-      hasMedia: true,
-      price: null
-    },
-    {
-      id: '2',
-      creator: {
-        name: 'Tita Sahara',
-        username: '@titasahara',
-        avatar: '/placeholder.svg',
-        verified: true
-      },
-      content: "DON'T MISS OUT ON THAT BUNDLE... 🔥",
-      timestamp: '3:33 pm',
-      likes: 189,
-      comments: 32,
-      isSubscribed: false,
-      hasMedia: true,
-      price: 25.99
-    }
-  ]);
+const Dashboard: React.FC = () => {
+  const { user, profile, creatorProfile } = useAuth();
+  const { stats, loading: statsLoading } = useCreatorStats();
+  const navigate = useNavigate();
+  const [feedPosts, setFeedPosts] = useState<any[]>([]);
+  const [subscribedCreators, setSubscribedCreators] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const stats = user?.isCreator ? [
-    {
-      title: "Total Earnings",
-      value: `$${user.earnings?.toFixed(2) || '0.00'}`,
-      change: "+12.5%",
-      icon: <DollarSign className="h-4 w-4" />,
-      color: "text-green-600"
-    },
-    {
-      title: "Subscribers",
-      value: user.subscriberCount?.toString() || '0',
-      change: "+8 this week",
-      icon: <Users className="h-4 w-4" />,
-      color: "text-blue-600"
-    },
-    {
-      title: "Total Likes",
-      value: "2.3K",
-      change: "+15.2%",
-      icon: <Heart className="h-4 w-4" />,
-      color: "text-pink-600"
-    },
-    {
-      title: "Content Views",
-      value: "45.2K",
-      change: "+23.1%",
-      icon: <TrendingUp className="h-4 w-4" />,
-      color: "text-purple-600"
-    }
-  ] : [
-    {
-      title: "Active Subscriptions",
-      value: "8",
-      change: "+2 this month",
-      icon: <Users className="h-4 w-4" />,
-      color: "text-blue-600"
-    },
-    {
-      title: "Content Unlocked",
-      value: "156",
-      change: "+12 this week",
-      icon: <Camera className="h-4 w-4" />,
-      color: "text-purple-600"
-    },
-    {
-      title: "Messages Sent",
-      value: "89",
-      change: "+5 today",
-      icon: <MessageCircle className="h-4 w-4" />,
-      color: "text-green-600"
-    },
-    {
-      title: "Likes Given",
-      value: "1.2K",
-      change: "+45 this week",
-      icon: <Heart className="h-4 w-4" />,
-      color: "text-pink-600"
-    }
-  ];
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!user) return;
+
+      try {
+        // Fetch feed posts (from subscribed creators or trending)
+        const { data: posts } = await supabase
+          .from('posts')
+          .select(`
+            *,
+            profiles (
+              username,
+              display_name,
+              avatar_url,
+              is_verified
+            )
+          `)
+          .eq('is_published', true)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        setFeedPosts(posts || []);
+
+        // Fetch subscribed creators
+        const { data: subscriptions } = await supabase
+          .from('user_subscriptions')
+          .select(`
+            creator_id,
+            profiles!user_subscriptions_creator_id_fkey (
+              id,
+              username,
+              display_name,
+              avatar_url,
+              bio,
+              is_verified
+            ),
+            creator_profiles!user_subscriptions_creator_id_fkey (
+              subscription_price,
+              total_subscribers,
+              content_categories
+            )
+          `)
+          .eq('subscriber_id', user.id)
+          .eq('status', 'active');
+
+        const creators = subscriptions?.map(sub => ({
+          ...sub.profiles,
+          subscriber_count: sub.creator_profiles?.total_subscribers,
+          subscription_price: sub.creator_profiles?.subscription_price,
+          categories: sub.creator_profiles?.content_categories,
+        })) || [];
+
+        setSubscribedCreators(creators);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar />
-      
-      <div className="flex-1 p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Welcome back, {user?.displayName}!
-              </h1>
-              <p className="text-gray-600 mt-1">
-                {user?.isCreator ? "Here's what's happening with your content" : "Discover amazing content from your favorite creators"}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm">
-                <Bell className="h-4 w-4 mr-2" />
-                Notifications
-              </Button>
-              <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </Button>
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Welcome back, {profile?.display_name}!
+          </h1>
+          <p className="text-gray-600">
+            {profile?.is_creator 
+              ? "Manage your content and track your earnings" 
+              : "Discover amazing creators and exclusive content"
+            }
+          </p>
+        </div>
+
+        {/* Creator Stats (if user is a creator) */}
+        {profile?.is_creator && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  ${(stats.totalEarnings / 100).toFixed(2)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  +${(stats.monthlyEarnings / 100).toFixed(2)} this month
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Subscribers</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalSubscribers}</div>
+                <p className="text-xs text-muted-foreground">
+                  +{stats.recentSubscribers} this week
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Posts</CardTitle>
+                <Heart className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalPosts}</div>
+                <p className="text-xs text-muted-foreground">
+                  {stats.engagementRate.toFixed(1)} avg likes per post
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Growth</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {stats.recentSubscribers > 0 ? '+' : ''}{stats.recentSubscribers}
+                </div>
+                <p className="text-xs text-muted-foreground">New subscribers</p>
+              </CardContent>
+            </Card>
           </div>
+        )}
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {stats.map((stat, index) => (
-              <Card key={index} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-600">
-                    {stat.title}
-                  </CardTitle>
-                  <div className={stat.color}>
-                    {stat.icon}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-                  <p className="text-xs text-green-600 mt-1">{stat.change}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Feed */}
-            <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    {user?.isCreator ? "Your Recent Posts" : "Latest from Creators"}
-                    <Button size="sm" className="gradient-bg">
-                      {user?.isCreator ? "Create Post" : "Explore More"}
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {posts.map((post) => (
-                    <div key={post.id} className="border-b pb-6 last:border-b-0 last:pb-0">
-                      <div className="flex items-start space-x-3">
-                        <Avatar>
-                          <AvatarImage src={post.creator.avatar} />
-                          <AvatarFallback>{post.creator.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h4 className="font-semibold text-gray-900">{post.creator.name}</h4>
-                            {post.creator.verified && (
-                              <Badge variant="secondary" className="text-xs">Verified</Badge>
-                            )}
-                            <span className="text-sm text-gray-500">{post.creator.username}</span>
-                            <span className="text-sm text-gray-400">·</span>
-                            <span className="text-sm text-gray-400">{post.timestamp}</span>
-                          </div>
-                          <p className="text-gray-800 mb-3">{post.content}</p>
-                          
-                          {post.hasMedia && (
-                            <div className="bg-gray-100 rounded-lg h-48 mb-3 flex items-center justify-center relative">
-                              {post.price && !post.isSubscribed ? (
-                                <div className="text-center">
-                                  <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                                  <p className="text-sm text-gray-600">Unlock for ${post.price}</p>
-                                  <Button size="sm" className="mt-2 gradient-creator">
-                                    Unlock Content
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="text-center text-gray-500">
-                                  <Camera className="h-8 w-8 mx-auto mb-2" />
-                                  <p className="text-sm">Premium Content</p>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          
-                          <div className="flex items-center space-x-6 text-gray-500">
-                            <button className="flex items-center space-x-2 hover:text-pink-600 transition-colors">
-                              <Heart className="h-4 w-4" />
-                              <span className="text-sm">{post.likes}</span>
-                            </button>
-                            <button className="flex items-center space-x-2 hover:text-blue-600 transition-colors">
-                              <MessageCircle className="h-4 w-4" />
-                              <span className="text-sm">{post.comments}</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Sidebar Content */}
-            <div className="space-y-6">
-              {user?.isCreator ? (
-                <>
-                  {/* Creator Quick Actions */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Quick Actions</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <Button className="w-full gradient-bg">
-                        <Camera className="h-4 w-4 mr-2" />
-                        Upload Content
-                      </Button>
-                      <Button variant="outline" className="w-full">
-                        <MessageCircle className="h-4 w-4 mr-2" />
-                        Message Fans
-                      </Button>
-                      <Button variant="outline" className="w-full">
-                        <TrendingUp className="h-4 w-4 mr-2" />
-                        View Analytics
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  {/* Top Supporters */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Top Supporters</CardTitle>
-                      <CardDescription>Your biggest fans this month</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {['John D.', 'Sarah M.', 'Mike R.'].map((supporter, index) => (
-                          <div key={index} className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback>{supporter.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <span className="font-medium">{supporter}</span>
-                            </div>
-                            <Badge variant="outline" className="text-green-600">
-                              ${(50 - index * 10).toFixed(2)}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              ) : (
-                <>
-                  {/* Suggested Creators */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Suggested Creators</CardTitle>
-                      <CardDescription>Creators you might like</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {['Luna Star', 'Violet Myers', 'Emma Rose'].map((creator, index) => (
-                          <div key={index} className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <Avatar>
-                                <AvatarFallback>{creator.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">{creator}</p>
-                                <p className="text-sm text-gray-500">{45 + index * 20} posts</p>
-                              </div>
-                            </div>
-                            <Button size="sm" variant="outline">
-                              Subscribe
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Recent Activity */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Recent Activity</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3 text-sm">
-                        <div className="flex items-center space-x-2">
-                          <Heart className="h-4 w-4 text-pink-500" />
-                          <span>You liked Luna Star's post</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <MessageCircle className="h-4 w-4 text-blue-500" />
-                          <span>New message from Emma Rose</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Users className="h-4 w-4 text-green-500" />
-                          <span>Subscribed to Violet Myers</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
-            </div>
+        {/* Quick Actions */}
+        <div className="mb-8">
+          <div className="flex flex-wrap gap-4">
+            {profile?.is_creator && (
+              <Button onClick={() => navigate('/creator')} className="gradient-bg">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Content
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => navigate('/messages')}>
+              Messages
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/subscriptions')}>
+              Subscriptions
+            </Button>
           </div>
         </div>
+
+        {/* Main Content */}
+        <Tabs defaultValue="feed" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="feed">Feed</TabsTrigger>
+            <TabsTrigger value="following">Following</TabsTrigger>
+            <TabsTrigger value="discover">Discover</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="feed" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                {feedPosts.length > 0 ? (
+                  feedPosts.map((post) => (
+                    <PostCard key={post.id} post={post} />
+                  ))
+                ) : (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
+                      <p className="text-gray-600 mb-4">
+                        Follow some creators to see their content in your feed!
+                      </p>
+                      <Button onClick={() => navigate('/')}>
+                        Discover Creators
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Your Subscriptions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {subscribedCreators.length > 0 ? (
+                      <div className="space-y-3">
+                        {subscribedCreators.slice(0, 3).map((creator) => (
+                          <div key={creator.id} className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-50 to-creator-50 flex items-center justify-center">
+                              {creator.display_name.charAt(0)}
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{creator.display_name}</p>
+                              <p className="text-xs text-gray-500">@{creator.username}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {subscribedCreators.length > 3 && (
+                          <Button variant="ghost" size="sm" className="w-full">
+                            View all {subscribedCreators.length} subscriptions
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-600">
+                        No subscriptions yet. Start following creators to see their content!
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="following" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {subscribedCreators.map((creator) => (
+                <CreatorCard key={creator.id} creator={creator} />
+              ))}
+            </div>
+            {subscribedCreators.length === 0 && (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <h3 className="text-lg font-semibold mb-2">Not following anyone yet</h3>
+                  <p className="text-gray-600 mb-4">
+                    Discover amazing creators and start following them!
+                  </p>
+                  <Button onClick={() => navigate('/')}>
+                    Browse Creators
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="discover" className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-4">Discover New Creators</h2>
+              <p className="text-gray-600 mb-8">
+                Find amazing content creators and exclusive content
+              </p>
+              <Button onClick={() => navigate('/')} size="lg" className="gradient-bg">
+                Explore Now
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

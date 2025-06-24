@@ -1,27 +1,54 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import type { User, Session } from '@supabase/supabase-js';
 
-interface User {
+interface Profile {
   id: string;
-  email: string;
   username: string;
-  displayName: string;
-  avatar?: string;
-  isCreator: boolean;
-  subscriptionTier?: 'basic' | 'premium' | 'vip';
-  earnings?: number;
-  subscriberCount?: number;
-  createdAt: string;
+  display_name: string;
+  bio?: string;
+  avatar_url?: string;
+  cover_url?: string;
+  is_creator: boolean;
+  is_verified: boolean;
+  verification_status: 'pending' | 'verified' | 'rejected';
+  location?: string;
+  website_url?: string;
+  twitter_handle?: string;
+  instagram_handle?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface CreatorProfile {
+  id: string;
+  user_id: string;
+  subscription_price: number;
+  total_earnings: number;
+  total_subscribers: number;
+  total_posts: number;
+  content_categories?: string[];
+  payout_email?: string;
+  tax_id?: string;
+  bank_account_info?: any;
+  created_at: string;
+  updated_at: string;
 }
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
+  profile: Profile | null;
+  creatorProfile: CreatorProfile | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, username: string, displayName: string) => Promise<void>;
-  logout: () => void;
-  updateUser: (updates: Partial<User>) => void;
+  logout: () => Promise<void>;
+  updateProfile: (updates: Partial<Profile>) => Promise<void>;
+  becomeCreator: (subscriptionPrice: number, categories: string[]) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -36,56 +63,92 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [creatorProfile, setCreatorProfile] = useState<CreatorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Simulate checking for existing session
-  useEffect(() => {
-    const checkAuth = async () => {
-      const savedUser = localStorage.getItem('kikonlyfans_user');
-      if (savedUser) {
-        try {
-          setUser(JSON.parse(savedUser));
-        } catch (error) {
-          localStorage.removeItem('kikonlyfans_user');
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) throw profileError;
+      setProfile(profileData);
+
+      if (profileData.is_creator) {
+        const { data: creatorData, error: creatorError } = await supabase
+          .from('creator_profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+
+        if (creatorError) {
+          console.error('Error fetching creator profile:', creatorError);
+        } else {
+          setCreatorProfile(creatorData);
         }
       }
-      setLoading(false);
-    };
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
 
-    checkAuth();
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.id);
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          setTimeout(() => {
+            fetchProfile(session.user.id);
+          }, 0);
+        } else {
+          setProfile(null);
+          setCreatorProfile(null);
+        }
+        setLoading(false);
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock user data based on email
-      const mockUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
+      const { error } = await supabase.auth.signInWithPassword({
         email,
-        username: email.split('@')[0],
-        displayName: email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1),
-        isCreator: email.includes('creator'),
-        subscriptionTier: 'basic',
-        earnings: email.includes('creator') ? 1250.50 : 0,
-        subscriberCount: email.includes('creator') ? 245 : 0,
-        createdAt: new Date().toISOString()
-      };
+        password,
+      });
 
-      setUser(mockUser);
-      localStorage.setItem('kikonlyfans_user', JSON.stringify(mockUser));
-      
+      if (error) throw error;
+
       toast({
         title: "Welcome back!",
         description: "You've been successfully logged in.",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Login failed",
-        description: "Please check your credentials and try again.",
+        description: error.message || "Please check your credentials and try again.",
         variant: "destructive",
       });
       throw error;
@@ -97,32 +160,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (email: string, password: string, username: string, displayName: string) => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const redirectUrl = `${window.location.origin}/`;
       
-      const mockUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
+      const { error } = await supabase.auth.signUp({
         email,
-        username,
-        displayName,
-        isCreator: false,
-        subscriptionTier: 'basic',
-        earnings: 0,
-        subscriberCount: 0,
-        createdAt: new Date().toISOString()
-      };
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            username,
+            display_name: displayName,
+          }
+        }
+      });
 
-      setUser(mockUser);
-      localStorage.setItem('kikonlyfans_user', JSON.stringify(mockUser));
-      
+      if (error) throw error;
+
       toast({
         title: "Account created!",
-        description: "Welcome to KikOnlyFans. Let's get started!",
+        description: "Welcome to KikOnlyFans. Please check your email to verify your account.",
       });
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Registration failed",
-        description: "Please try again with different credentials.",
+        description: error.message || "Please try again with different credentials.",
         variant: "destructive",
       });
       throw error;
@@ -131,25 +192,116 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('kikonlyfans_user');
-    toast({
-      title: "Logged out",
-      description: "You've been successfully logged out.",
-    });
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      toast({
+        title: "Logged out",
+        description: "You've been successfully logged out.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Logout failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const updateUser = (updates: Partial<User>) => {
+  const updateProfile = async (updates: Partial<Profile>) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setProfile(prev => prev ? { ...prev, ...updates } : null);
+      
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been successfully updated.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const becomeCreator = async (subscriptionPrice: number, categories: string[]) => {
+    if (!user || !profile) return;
+
+    try {
+      // Update profile to mark as creator
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ is_creator: true })
+        .eq('id', user.id);
+
+      if (profileError) throw profileError;
+
+      // Create creator profile
+      const { data: creatorData, error: creatorError } = await supabase
+        .from('creator_profiles')
+        .insert({
+          user_id: user.id,
+          subscription_price: subscriptionPrice * 100, // Convert to cents
+          content_categories: categories,
+          total_earnings: 0,
+          total_subscribers: 0,
+          total_posts: 0,
+        })
+        .select()
+        .single();
+
+      if (creatorError) throw creatorError;
+
+      setProfile(prev => prev ? { ...prev, is_creator: true } : null);
+      setCreatorProfile(creatorData);
+
+      toast({
+        title: "Creator account activated!",
+        description: "You can now start creating and monetizing content.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Creator setup failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const refreshProfile = async () => {
     if (user) {
-      const updatedUser = { ...user, ...updates };
-      setUser(updatedUser);
-      localStorage.setItem('kikonlyfans_user', JSON.stringify(updatedUser));
+      await fetchProfile(user.id);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{
+      user,
+      session,
+      profile,
+      creatorProfile,
+      loading,
+      login,
+      register,
+      logout,
+      updateProfile,
+      becomeCreator,
+      refreshProfile
+    }}>
       {children}
     </AuthContext.Provider>
   );
