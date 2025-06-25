@@ -1,261 +1,471 @@
 
-import Sidebar from '@/components/Sidebar';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useRealUserActivity } from '@/components/RealDataLoader';
+import MainLayout from '@/layouts/MainLayout';
+import PostCard from '@/components/PostCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/contexts/AuthContext';
-import { Camera, Heart, MessageCircle, Star, Users, Edit, Settings } from 'lucide-react';
+import { 
+  MapPin, 
+  Calendar, 
+  Globe, 
+  Instagram, 
+  Twitter,
+  Heart,
+  MessageCircle,
+  Users,
+  DollarSign,
+  Star,
+  Settings,
+  UserPlus,
+  UserCheck
+} from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
-const Profile = () => {
-  const { user, profile, creatorProfile } = useAuth();
+interface UserProfile {
+  id: string;
+  username: string;
+  display_name: string;
+  bio?: string;
+  avatar_url?: string;
+  cover_url?: string;
+  location?: string;
+  website_url?: string;
+  instagram_handle?: string;
+  twitter_handle?: string;
+  is_verified: boolean;
+  is_creator: boolean;
+  created_at: string;
+  creator_profiles?: {
+    total_subscribers: number;
+    total_posts: number;
+    total_earnings: number;
+    subscription_price: number;
+    content_categories?: string[];
+  }[];
+}
 
-  const profileStats = [
-    { label: 'Posts', value: creatorProfile?.total_posts?.toString() || '0' },
-    { label: 'Subscribers', value: creatorProfile?.total_subscribers?.toString() || '0' },
-    { label: 'Likes', value: '12.5K' },
-    { label: 'Following', value: '89' }
-  ];
+interface Post {
+  id: string;
+  title?: string;
+  description?: string;
+  media_urls?: string[];
+  thumbnail_url?: string;
+  is_ppv: boolean;
+  ppv_price?: number;
+  like_count: number;
+  comment_count: number;
+  view_count: number;
+  created_at: string;
+  is_published: boolean;
+  profiles: {
+    username: string;
+    display_name: string;
+    avatar_url?: string;
+    is_verified: boolean;
+  };
+}
 
-  const posts = Array(12).fill(null).map((_, index) => ({
-    id: index.toString(),
-    thumbnail: '/placeholder.svg',
-    type: index % 3 === 0 ? 'video' : 'image',
-    likes: Math.floor(Math.random() * 500) + 50,
-    isLocked: index % 4 === 0,
-    price: index % 4 === 0 ? 9.99 + (index * 2) : null
-  }));
+const Profile: React.FC = () => {
+  const { userId } = useParams();
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  
+  const targetUserId = userId || user?.id;
+  const isOwnProfile = targetUserId === user?.id;
+  const { activity } = useRealUserActivity(targetUserId);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!targetUserId) return;
+
+      try {
+        // Fetch user profile
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select(`
+            *,
+            creator_profiles (
+              total_subscribers,
+              total_posts,
+              total_earnings,
+              subscription_price,
+              content_categories
+            )
+          `)
+          .eq('id', targetUserId)
+          .single();
+
+        if (profileData) {
+          setProfile(profileData as UserProfile);
+        }
+
+        // Fetch user's posts
+        const { data: postsData } = await supabase
+          .from('posts')
+          .select(`
+            *,
+            profiles (
+              username,
+              display_name,
+              avatar_url,
+              is_verified
+            )
+          `)
+          .eq('creator_id', targetUserId)
+          .eq('is_published', true)
+          .order('created_at', { ascending: false });
+
+        setPosts(postsData as Post[] || []);
+
+        // Check if current user follows this profile
+        if (user && targetUserId !== user.id) {
+          const { data: followData } = await supabase
+            .from('follows')
+            .select('id')
+            .eq('follower_id', user.id)
+            .eq('following_id', targetUserId)
+            .single();
+
+          setIsFollowing(!!followData);
+        }
+
+        // Get followers and following counts
+        const { count: followersCount } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact' })
+          .eq('following_id', targetUserId);
+
+        const { count: followingCount } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact' })
+          .eq('follower_id', targetUserId);
+
+        setFollowersCount(followersCount || 0);
+        setFollowingCount(followingCount || 0);
+
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [targetUserId, user]);
+
+  const handleFollow = async () => {
+    if (!user || !targetUserId || targetUserId === user.id) return;
+
+    try {
+      if (isFollowing) {
+        // Unfollow
+        await supabase
+          .from('follows')
+          .delete()
+          .eq('follower_id', user.id)
+          .eq('following_id', targetUserId);
+        
+        setIsFollowing(false);
+        setFollowersCount(prev => prev - 1);
+      } else {
+        // Follow
+        await supabase
+          .from('follows')
+          .insert({
+            follower_id: user.id,
+            following_id: targetUserId
+          });
+        
+        setIsFollowing(true);
+        setFollowersCount(prev => prev + 1);
+      }
+    } catch (error) {
+      console.error('Error updating follow status:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <MainLayout>
+        <div className="text-center py-12">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Profile Not Found</h2>
+          <p className="text-gray-600">The requested profile could not be found.</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  const creatorProfile = profile.creator_profiles?.[0];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar />
-      
-      <div className="flex-1 p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Profile Header */}
-          <Card className="overflow-hidden">
-            <div className="h-32 bg-gradient-to-r from-brand-500 to-creator-500"></div>
-            <CardContent className="relative pb-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-end space-y-4 sm:space-y-0 sm:space-x-6 -mt-16">
-                <Avatar className="h-32 w-32 border-4 border-white shadow-lg">
-                  <AvatarImage src={profile?.avatar_url} />
-                  <AvatarFallback className="text-2xl">{profile?.display_name?.charAt(0)}</AvatarFallback>
-                </Avatar>
+    <MainLayout>
+      <div className="max-w-4xl mx-auto">
+        {/* Cover Photo */}
+        <div className="relative h-64 bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 rounded-t-lg overflow-hidden">
+          {profile.cover_url && (
+            <img 
+              src={profile.cover_url} 
+              alt="Cover" 
+              className="w-full h-full object-cover"
+            />
+          )}
+        </div>
+
+        {/* Profile Header */}
+        <div className="bg-white rounded-b-lg shadow-sm border border-gray-200 px-6 py-6">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start space-x-4">
+              <Avatar className="h-24 w-24 border-4 border-white -mt-12">
+                <AvatarImage src={profile.avatar_url} />
+                <AvatarFallback className="text-lg">{profile.display_name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              
+              <div className="pt-2">
+                <div className="flex items-center space-x-2 mb-2">
+                  <h1 className="text-2xl font-bold text-gray-900">{profile.display_name}</h1>
+                  {profile.is_verified && (
+                    <Badge className="bg-blue-500">
+                      <Star className="h-3 w-3 mr-1" />
+                      Verified
+                    </Badge>
+                  )}
+                  {profile.is_creator && (
+                    <Badge className="bg-purple-500">Creator</Badge>
+                  )}
+                </div>
+                <p className="text-gray-600 mb-2">@{profile.username}</p>
+                {profile.bio && <p className="text-gray-700 mb-3">{profile.bio}</p>}
                 
-                <div className="flex-1 sm:mt-16">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h1 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
-                        <span>{profile?.display_name}</span>
-                        {profile?.is_creator && (
-                          <Badge className="bg-creator-500">Creator</Badge>
-                        )}
-                      </h1>
-                      <p className="text-gray-600">@{profile?.username}</p>
+                <div className="flex items-center space-x-4 text-sm text-gray-500">
+                  {profile.location && (
+                    <div className="flex items-center">
+                      <MapPin className="h-4 w-4 mr-1" />
+                      {profile.location}
                     </div>
-                    
-                    <div className="flex space-x-2 mt-4 sm:mt-0">
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit Profile
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <p className="text-gray-700 mt-2">
-                    {profile?.is_creator 
-                      ? "Premium content creator sharing exclusive photos and videos. Subscribe for daily updates! 💕" 
-                      : "Enjoying amazing content from my favorite creators! ❤️"
-                    }
-                  </p>
-                  
-                  {/* Stats */}
-                  <div className="flex space-x-6 mt-4">
-                    {profileStats.map((stat) => (
-                      <div key={stat.label} className="text-center">
-                        <div className="font-bold text-gray-900">{stat.value}</div>
-                        <div className="text-sm text-gray-600">{stat.label}</div>
-                      </div>
-                    ))}
+                  )}
+                  <div className="flex items-center">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    Joined {formatDistanceToNow(new Date(profile.created_at))} ago
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Profile Tabs */}
-          <Tabs defaultValue="posts" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="posts">Posts</TabsTrigger>
-              <TabsTrigger value="about">About</TabsTrigger>
-              <TabsTrigger value="reviews">Reviews</TabsTrigger>
+            <div className="flex items-center space-x-3">
+              {isOwnProfile ? (
+                <Button variant="outline">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Edit Profile
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline">
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Message
+                  </Button>
+                  <Button 
+                    onClick={handleFollow}
+                    className={isFollowing ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'gradient-bg'}
+                  >
+                    {isFollowing ? (
+                      <>
+                        <UserCheck className="h-4 w-4 mr-2" />
+                        Following
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Follow
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-gray-900">{posts.length}</p>
+              <p className="text-sm text-gray-600">Posts</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-gray-900">{followersCount}</p>
+              <p className="text-sm text-gray-600">Followers</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-gray-900">{followingCount}</p>
+              <p className="text-sm text-gray-600">Following</p>
+            </div>
+            {creatorProfile && (
+              <div className="text-center">
+                <p className="text-2xl font-bold text-gray-900">{creatorProfile.total_subscribers}</p>
+                <p className="text-sm text-gray-600">Subscribers</p>
+              </div>
+            )}
+          </div>
+
+          {/* Social Links */}
+          {(profile.website_url || profile.instagram_handle || profile.twitter_handle) && (
+            <div className="flex items-center space-x-4 mt-4 pt-4 border-t">
+              {profile.website_url && (
+                <a 
+                  href={profile.website_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center text-blue-600 hover:text-blue-800"
+                >
+                  <Globe className="h-4 w-4 mr-1" />
+                  Website
+                </a>
+              )}
+              {profile.instagram_handle && (
+                <a 
+                  href={`https://instagram.com/${profile.instagram_handle}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center text-pink-600 hover:text-pink-800"
+                >
+                  <Instagram className="h-4 w-4 mr-1" />
+                  Instagram
+                </a>
+              )}
+              {profile.twitter_handle && (
+                <a 
+                  href={`https://twitter.com/${profile.twitter_handle}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center text-blue-400 hover:text-blue-600"
+                >
+                  <Twitter className="h-4 w-4 mr-1" />
+                  Twitter
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Content Tabs */}
+        <div className="mt-8">
+          <Tabs defaultValue="posts" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="posts">Posts ({posts.length})</TabsTrigger>
               <TabsTrigger value="activity">Activity</TabsTrigger>
+              <TabsTrigger value="about">About</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="posts">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {posts.map((post) => (
-                  <div key={post.id} className="relative group aspect-square">
-                    <div className="w-full h-full bg-gray-200 rounded-lg overflow-hidden cursor-pointer">
-                      <img 
-                        src={post.thumbnail} 
-                        alt="Post" 
-                        className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${
-                          post.isLocked ? 'blur-sm' : ''
-                        }`}
-                      />
-                      
-                      {/* Overlay */}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300">
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <div className="flex items-center space-x-4 text-white">
-                            <div className="flex items-center space-x-1">
-                              <Heart className="h-4 w-4" />
-                              <span className="text-sm">{post.likes}</span>
-                            </div>
-                            {post.type === 'video' && (
-                              <div className="flex items-center space-x-1">
-                                <Camera className="h-4 w-4" />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Lock indicator */}
-                      {post.isLocked && (
-                        <div className="absolute top-2 right-2 bg-creator-500 text-white text-xs px-2 py-1 rounded-full">
-                          ${post.price}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="about">
-              <Card>
-                <CardHeader>
-                  <CardTitle>About</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Bio</h4>
-                    <p className="text-gray-700">
-                      {profile?.bio || (profile?.is_creator 
-                        ? "Professional content creator passionate about photography and connecting with fans. I love creating unique and exclusive content that tells a story. Subscribe to get access to my premium photos, videos, and behind-the-scenes content!"
-                        : "Content enthusiast who loves discovering amazing creators and supporting their work. Always looking for new and exciting content!"
-                      )}
+            <TabsContent value="posts" className="mt-6">
+              {posts.length === 0 ? (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Heart className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No posts yet</h3>
+                    <p className="text-gray-500">
+                      {isOwnProfile ? 'Share your first post to get started!' : 'This user hasn\'t posted anything yet.'}
                     </p>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Joined</h4>
-                    <p className="text-gray-700">
-                      {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'December 2023'}
-                    </p>
-                  </div>
-                  
-                  {profile?.is_creator && creatorProfile && (
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-2">Subscription Price</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <span className="font-medium">Monthly Access</span>
-                          <Badge variant="outline">${(creatorProfile.subscription_price / 100).toFixed(2)}/month</Badge>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-6">
+                  {posts.map((post) => (
+                    <PostCard key={post.id} post={post} />
+                  ))}
+                </div>
+              )}
             </TabsContent>
 
-            <TabsContent value="reviews">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Reviews & Ratings</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {profile?.is_creator ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-4">
-                        <div className="text-3xl font-bold">4.8</div>
-                        <div>
-                          <div className="flex items-center space-x-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star key={star} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                            ))}
-                          </div>
-                          <p className="text-sm text-gray-600">Based on 127 reviews</p>
+            <TabsContent value="activity" className="mt-6">
+              {activity ? (
+                <div className="grid gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Recent Activity</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">Total Spent</span>
+                          <span className="font-semibold">${(activity.totalSpent / 100).toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">Active Subscriptions</span>
+                          <span className="font-semibold">{activity.activeSubscriptions?.length || 0}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">Recent Likes</span>
+                          <span className="font-semibold">{activity.recentLikes?.length || 0}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">Recent Comments</span>
+                          <span className="font-semibold">{activity.recentComments?.length || 0}</span>
                         </div>
                       </div>
-                      
-                      <div className="space-y-3">
-                        {[
-                          { name: "Sarah M.", rating: 5, comment: "Amazing content and great interaction!" },
-                          { name: "Mike R.", rating: 5, comment: "Love the exclusive photos. Worth every penny!" },
-                          { name: "Jessica L.", rating: 4, comment: "Creative and high quality content." }
-                        ].map((review, index) => (
-                          <div key={index} className="border-b pb-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="font-medium">{review.name}</span>
-                              <div className="flex items-center space-x-1">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <Star 
-                                    key={star} 
-                                    className={`h-3 w-3 ${
-                                      star <= review.rating 
-                                        ? 'fill-yellow-400 text-yellow-400' 
-                                        : 'text-gray-300'
-                                    }`} 
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                            <p className="text-sm text-gray-700">{review.comment}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center text-gray-500 py-8">
-                      <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>Reviews are only available for creators</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No activity data</h3>
+                    <p className="text-gray-500">Activity information is not available.</p>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
-            <TabsContent value="activity">
+            <TabsContent value="about" className="mt-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
+                  <CardTitle>About {profile.display_name}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {[
-                      { action: "Posted new content", time: "2 hours ago", icon: Camera },
-                      { action: "Received 45 new likes", time: "4 hours ago", icon: Heart },
-                      { action: "New subscriber joined", time: "6 hours ago", icon: Users },
-                      { action: "Sent 12 messages", time: "1 day ago", icon: MessageCircle }
-                    ].map((activity, index) => (
-                      <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                        <div className="p-2 bg-white rounded-full">
-                          <activity.icon className="h-4 w-4 text-gray-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{activity.action}</p>
-                          <p className="text-sm text-gray-500">{activity.time}</p>
+                    {profile.bio && (
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-2">Bio</h4>
+                        <p className="text-gray-700">{profile.bio}</p>
+                      </div>
+                    )}
+                    
+                    {creatorProfile?.content_categories && creatorProfile.content_categories.length > 0 && (
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-2">Content Categories</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {creatorProfile.content_categories.map((category, index) => (
+                            <Badge key={index} variant="secondary">{category}</Badge>
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    )}
+                    
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Joined</h4>
+                      <p className="text-gray-700">{new Date(profile.created_at).toLocaleDateString()}</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -263,7 +473,7 @@ const Profile = () => {
           </Tabs>
         </div>
       </div>
-    </div>
+    </MainLayout>
   );
 };
 
