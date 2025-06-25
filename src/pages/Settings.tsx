@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Settings as SettingsIcon, User, Bell, Shield, CreditCard } from 'lucide-react';
 import MainLayout from '@/layouts/MainLayout';
 
@@ -49,7 +48,7 @@ const Settings: React.FC = () => {
 
       if (error) throw error;
 
-      await updateProfile();
+      await updateProfile(formData);
       toast({
         title: "Success",
         description: "Profile updated successfully!",
