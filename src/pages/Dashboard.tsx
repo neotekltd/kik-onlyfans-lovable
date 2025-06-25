@@ -29,6 +29,8 @@ interface Post {
   id: string;
   title?: string;
   description?: string;
+  content_type: string;
+  is_premium: boolean;
   media_urls?: string[];
   thumbnail_url?: string;
   is_ppv: boolean;

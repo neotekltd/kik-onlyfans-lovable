@@ -48,13 +48,15 @@ interface UserProfile {
     total_earnings: number;
     subscription_price: number;
     content_categories?: string[];
-  }[];
+  };
 }
 
 interface Post {
   id: string;
   title?: string;
   description?: string;
+  content_type: string;
+  is_premium: boolean;
   media_urls?: string[];
   thumbnail_url?: string;
   is_ppv: boolean;
@@ -64,6 +66,7 @@ interface Post {
   view_count: number;
   created_at: string;
   is_published: boolean;
+  creator_id: string;
   profiles: {
     username: string;
     display_name: string;
@@ -108,7 +111,12 @@ const Profile: React.FC = () => {
           .single();
 
         if (profileData) {
-          setProfile(profileData as UserProfile);
+          // Transform the data to match our interface
+          const transformedProfile: UserProfile = {
+            ...profileData,
+            creator_profiles: profileData.creator_profiles?.[0] || undefined
+          };
+          setProfile(transformedProfile);
         }
 
         // Fetch user's posts
@@ -217,7 +225,7 @@ const Profile: React.FC = () => {
     );
   }
 
-  const creatorProfile = profile.creator_profiles?.[0];
+  const creatorProfile = profile.creator_profiles;
 
   return (
     <MainLayout>
