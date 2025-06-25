@@ -127,13 +127,17 @@ export const useRealUserActivity = (userId?: string) => {
           .order('created_at', { ascending: false })
           .limit(5);
 
+        // Calculate total spent by properly handling the different data types
+        const subscriptionTotal = subscriptionsData?.reduce((sum, sub) => sum + sub.amount_paid, 0) || 0;
+        const tipsTotal = tipsData?.reduce((sum, tip) => sum + tip.amount, 0) || 0;
+        const totalSpent = subscriptionTotal + tipsTotal;
+
         setActivity({
           recentLikes: likesData || [],
           recentComments: commentsData || [],
           activeSubscriptions: subscriptionsData || [],
           recentTips: tipsData || [],
-          totalSpent: [...(subscriptionsData || []), ...(tipsData || [])]
-            .reduce((sum, item) => sum + (item.amount_paid || item.amount), 0)
+          totalSpent
         });
       } catch (error) {
         console.error('Error fetching user activity:', error);
