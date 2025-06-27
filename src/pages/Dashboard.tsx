@@ -4,15 +4,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlatformStats } from '@/components/RealDataLoader';
 import Sidebar from '@/components/Sidebar';
-import PostCard from '@/components/PostCard';
-import CreatorCard from '@/components/CreatorCard';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, TrendingUp, Heart, Users, DollarSign, Star } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import DashboardHeader from '@/components/dashboard/DashboardHeader';
+import PlatformStatsGrid from '@/components/dashboard/PlatformStatsGrid';
+import ContentTabs from '@/components/dashboard/ContentTabs';
 
 interface Creator {
   id: string;
@@ -152,152 +146,24 @@ const Dashboard: React.FC = () => {
       <Sidebar />
       
       <main className="flex-1 p-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-white">
-                Welcome back{user ? `, ${user.email?.split('@')[0]}` : ''}!
-              </h1>
-              <p className="text-gray-300 mt-2">
-                Discover exclusive adult content from creators around the world
-              </p>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search creators, content..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-80 bg-gray-800 border-gray-700 text-white"
-                />
-              </div>
-            </div>
-          </div>
+        <DashboardHeader
+          user={user}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+        />
 
-          {/* Platform Stats */}
-          {platformStats && !statsLoading && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-              <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <Users className="h-8 w-8 text-pink-500" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-300">Total Users</p>
-                      <p className="text-2xl font-bold text-white">{platformStats.totalUsers.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <Star className="h-8 w-8 text-purple-500" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-300">Content Creators</p>
-                      <p className="text-2xl font-bold text-white">{platformStats.totalCreators.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <Heart className="h-8 w-8 text-red-500" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-300">Premium Posts</p>
-                      <p className="text-2xl font-bold text-white">{platformStats.totalPosts.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-6">
-                  <div className="flex items-center">
-                    <DollarSign className="h-8 w-8 text-green-500" />
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-300">Active Subscriptions</p>
-                      <p className="text-2xl font-bold text-white">{platformStats.activeSubscriptions.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </div>
+        <PlatformStatsGrid
+          stats={platformStats}
+          loading={statsLoading}
+        />
 
-        {/* Content Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-gray-800 border-gray-700">
-            <TabsTrigger value="for-you" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-pink-600">For You</TabsTrigger>
-            <TabsTrigger value="trending" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-pink-600">Trending</TabsTrigger>
-            <TabsTrigger value="creators" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-pink-600">Creators</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="for-you" className="mt-6">
-            <div className="space-y-6">
-              {filteredPosts.length === 0 ? (
-                <Card className="bg-gray-800 border-gray-700">
-                  <CardContent className="p-12 text-center">
-                    <Heart className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-white mb-2">No posts found</h3>
-                    <p className="text-gray-400">
-                      {searchQuery ? 'Try adjusting your search terms' : 'Be the first to create content!'}
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                filteredPosts.map((post) => (
-                  <PostCard key={post.id} post={post} />
-                ))
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="trending" className="mt-6">
-            <div className="space-y-6">
-              {filteredPosts
-                .sort((a, b) => (b.like_count + b.view_count) - (a.like_count + a.view_count))
-                .slice(0, 10)
-                .map((post) => (
-                  <div key={post.id} className="relative">
-                    <PostCard post={post} />
-                    <Badge className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-red-500">
-                      <TrendingUp className="h-3 w-3 mr-1" />
-                      Trending
-                    </Badge>
-                  </div>
-                ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="creators" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCreators.length === 0 ? (
-                <div className="col-span-full">
-                  <Card className="bg-gray-800 border-gray-700">
-                    <CardContent className="p-12 text-center">
-                      <Users className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-white mb-2">No creators found</h3>
-                      <p className="text-gray-400">
-                        {searchQuery ? 'Try adjusting your search terms' : 'No creators available yet'}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-              ) : (
-                filteredCreators.map((creator) => (
-                  <CreatorCard key={creator.id} creator={creator} />
-                ))
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+        <ContentTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          filteredPosts={filteredPosts}
+          filteredCreators={filteredCreators}
+          searchQuery={searchQuery}
+        />
       </main>
     </div>
   );
