@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,6 +44,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner = false, hasAccess = 
   const [loading, setLoading] = useState(false);
 
   const canViewContent = isOwner || hasAccess || (!post.is_premium && !post.is_ppv);
+  const isAdultContent = post.is_premium || post.is_ppv;
 
   const handleLike = async () => {
     if (!user) return;
@@ -95,23 +95,23 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner = false, hasAccess = 
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden bg-gray-800 border-gray-700">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-3">
           <Avatar>
             <AvatarImage src={post.profiles?.avatar_url} alt={post.profiles?.display_name} />
-            <AvatarFallback>
+            <AvatarFallback className="bg-gray-700 text-white">
               {post.profiles?.display_name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <h4 className="font-semibold">{post.profiles?.display_name}</h4>
+              <h4 className="font-semibold text-white">{post.profiles?.display_name}</h4>
               {post.profiles?.is_verified && (
-                <Badge variant="secondary" className="text-xs">Verified</Badge>
+                <Badge variant="secondary" className="text-xs bg-blue-600 text-white">Verified</Badge>
               )}
             </div>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-400">
               @{post.profiles?.username} • {formatDistanceToNow(new Date(post.created_at))} ago
             </p>
           </div>
@@ -120,20 +120,23 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner = false, hasAccess = 
 
       <CardContent className="pt-0">
         {post.title && (
-          <h3 className="font-semibold text-lg mb-2">{post.title}</h3>
+          <h3 className="font-semibold text-lg mb-2 text-white">{post.title}</h3>
         )}
         
         {post.description && (
-          <p className="text-gray-700 mb-3">{post.description}</p>
+          <p className="text-gray-300 mb-3">{post.description}</p>
         )}
 
         <div className="flex items-center gap-2 mb-3">
-          <Badge variant="outline">{post.content_type}</Badge>
-          {post.is_premium && <Badge className="bg-yellow-500">Premium</Badge>}
+          <Badge variant="outline" className="border-gray-600 text-gray-300">{post.content_type}</Badge>
+          {post.is_premium && <Badge className="bg-gradient-to-r from-pink-500 to-purple-500">Premium</Badge>}
           {post.is_ppv && (
-            <Badge className="bg-purple-500">
+            <Badge className="bg-gradient-to-r from-purple-500 to-pink-500">
               PPV ${(post.ppv_price! / 100).toFixed(2)}
             </Badge>
+          )}
+          {isAdultContent && (
+            <Badge className="bg-red-600 text-white">18+</Badge>
           )}
         </div>
 
@@ -146,7 +149,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner = false, hasAccess = 
                   {post.media_urls.slice(0, 4).map((url, index) => (
                     <div
                       key={index}
-                      className="aspect-square bg-gray-100 rounded-lg overflow-hidden"
+                      className="aspect-square bg-gray-700 rounded-lg overflow-hidden"
                     >
                       <img
                         src={url}
@@ -159,18 +162,21 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner = false, hasAccess = 
               )}
             </div>
           ) : (
-            <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center relative">
+            <div className="aspect-video bg-gray-700 rounded-lg flex items-center justify-center relative border-2 border-dashed border-pink-500">
               <div className="text-center">
-                <Lock className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500 font-medium">
-                  {post.is_ppv ? 'Pay-per-view content' : 'Premium content'}
+                <Lock className="h-12 w-12 text-pink-500 mx-auto mb-2" />
+                <p className="text-pink-400 font-medium">
+                  {post.is_ppv ? 'Exclusive Pay-Per-View Content' : 'Premium Subscriber Content'}
                 </p>
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-gray-400 mt-1">
                   {post.is_ppv 
-                    ? `Purchase for $${(post.ppv_price! / 100).toFixed(2)}`
-                    : 'Subscribe to view'
+                    ? `Unlock for $${(post.ppv_price! / 100).toFixed(2)}`
+                    : 'Subscribe to view exclusive content'
                   }
                 </p>
+              </div>
+              <div className="absolute top-2 right-2">
+                <Badge className="bg-red-600 text-white text-xs">18+</Badge>
               </div>
             </div>
           )}
@@ -184,18 +190,18 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner = false, hasAccess = 
               size="sm"
               onClick={handleLike}
               disabled={loading || !user}
-              className={liked ? 'text-red-500' : ''}
+              className={`${liked ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'} hover:bg-gray-700`}
             >
               <Heart className={`h-4 w-4 mr-1 ${liked ? 'fill-current' : ''}`} />
               {likes}
             </Button>
             
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-pink-500 hover:bg-gray-700">
               <MessageCircle className="h-4 w-4 mr-1" />
               {post.comment_count}
             </Button>
             
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-purple-500 hover:bg-gray-700">
               <Share className="h-4 w-4 mr-1" />
               Share
             </Button>
@@ -207,8 +213,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, isOwner = false, hasAccess = 
           </div>
 
           {!canViewContent && post.is_ppv && (
-            <Button size="sm" onClick={handlePurchase} className="gradient-bg">
-              Purchase ${(post.ppv_price! / 100).toFixed(2)}
+            <Button size="sm" onClick={handlePurchase} className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600">
+              Unlock ${(post.ppv_price! / 100).toFixed(2)}
             </Button>
           )}
         </div>

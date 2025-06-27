@@ -138,17 +138,17 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex">
+      <div className="min-h-screen bg-gray-900 flex">
         <Sidebar />
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-900 flex">
       <Sidebar />
       
       <main className="flex-1 p-8">
@@ -156,11 +156,11 @@ const Dashboard: React.FC = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-white">
                 Welcome back{user ? `, ${user.email?.split('@')[0]}` : ''}!
               </h1>
-              <p className="text-gray-600 mt-2">
-                Discover amazing content from creators around the world
+              <p className="text-gray-300 mt-2">
+                Discover exclusive adult content from creators around the world
               </p>
             </div>
             
@@ -171,7 +171,7 @@ const Dashboard: React.FC = () => {
                   placeholder="Search creators, content..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-80"
+                  className="pl-10 w-80 bg-gray-800 border-gray-700 text-white"
                 />
               </div>
             </div>
@@ -180,49 +180,49 @@ const Dashboard: React.FC = () => {
           {/* Platform Stats */}
           {platformStats && !statsLoading && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-              <Card>
+              <Card className="bg-gray-800 border-gray-700">
                 <CardContent className="p-6">
                   <div className="flex items-center">
-                    <Users className="h-8 w-8 text-blue-600" />
+                    <Users className="h-8 w-8 text-pink-500" />
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Users</p>
-                      <p className="text-2xl font-bold text-gray-900">{platformStats.totalUsers.toLocaleString()}</p>
+                      <p className="text-sm font-medium text-gray-300">Total Users</p>
+                      <p className="text-2xl font-bold text-white">{platformStats.totalUsers.toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card>
+              <Card className="bg-gray-800 border-gray-700">
                 <CardContent className="p-6">
                   <div className="flex items-center">
-                    <Star className="h-8 w-8 text-purple-600" />
+                    <Star className="h-8 w-8 text-purple-500" />
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Creators</p>
-                      <p className="text-2xl font-bold text-gray-900">{platformStats.totalCreators.toLocaleString()}</p>
+                      <p className="text-sm font-medium text-gray-300">Content Creators</p>
+                      <p className="text-2xl font-bold text-white">{platformStats.totalCreators.toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card>
+              <Card className="bg-gray-800 border-gray-700">
                 <CardContent className="p-6">
                   <div className="flex items-center">
-                    <Heart className="h-8 w-8 text-red-600" />
+                    <Heart className="h-8 w-8 text-red-500" />
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Posts</p>
-                      <p className="text-2xl font-bold text-gray-900">{platformStats.totalPosts.toLocaleString()}</p>
+                      <p className="text-sm font-medium text-gray-300">Premium Posts</p>
+                      <p className="text-2xl font-bold text-white">{platformStats.totalPosts.toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card>
+              <Card className="bg-gray-800 border-gray-700">
                 <CardContent className="p-6">
                   <div className="flex items-center">
-                    <DollarSign className="h-8 w-8 text-green-600" />
+                    <DollarSign className="h-8 w-8 text-green-500" />
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Active Subs</p>
-                      <p className="text-2xl font-bold text-gray-900">{platformStats.activeSubscriptions.toLocaleString()}</p>
+                      <p className="text-sm font-medium text-gray-300">Active Subscriptions</p>
+                      <p className="text-2xl font-bold text-white">{platformStats.activeSubscriptions.toLocaleString()}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -233,20 +233,20 @@ const Dashboard: React.FC = () => {
 
         {/* Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="for-you">For You</TabsTrigger>
-            <TabsTrigger value="trending">Trending</TabsTrigger>
-            <TabsTrigger value="creators">Creators</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 bg-gray-800 border-gray-700">
+            <TabsTrigger value="for-you" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-pink-600">For You</TabsTrigger>
+            <TabsTrigger value="trending" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-pink-600">Trending</TabsTrigger>
+            <TabsTrigger value="creators" className="text-gray-300 data-[state=active]:text-white data-[state=active]:bg-pink-600">Creators</TabsTrigger>
           </TabsList>
 
           <TabsContent value="for-you" className="mt-6">
             <div className="space-y-6">
               {filteredPosts.length === 0 ? (
-                <Card>
+                <Card className="bg-gray-800 border-gray-700">
                   <CardContent className="p-12 text-center">
-                    <Heart className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No posts found</h3>
-                    <p className="text-gray-500">
+                    <Heart className="h-12 w-12 text-gray-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-white mb-2">No posts found</h3>
+                    <p className="text-gray-400">
                       {searchQuery ? 'Try adjusting your search terms' : 'Be the first to create content!'}
                     </p>
                   </CardContent>
@@ -267,7 +267,7 @@ const Dashboard: React.FC = () => {
                 .map((post) => (
                   <div key={post.id} className="relative">
                     <PostCard post={post} />
-                    <Badge className="absolute top-4 right-4 bg-orange-500">
+                    <Badge className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-red-500">
                       <TrendingUp className="h-3 w-3 mr-1" />
                       Trending
                     </Badge>
@@ -280,11 +280,11 @@ const Dashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredCreators.length === 0 ? (
                 <div className="col-span-full">
-                  <Card>
+                  <Card className="bg-gray-800 border-gray-700">
                     <CardContent className="p-12 text-center">
-                      <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No creators found</h3>
-                      <p className="text-gray-500">
+                      <Users className="h-12 w-12 text-gray-500 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-white mb-2">No creators found</h3>
+                      <p className="text-gray-400">
                         {searchQuery ? 'Try adjusting your search terms' : 'No creators available yet'}
                       </p>
                     </CardContent>
