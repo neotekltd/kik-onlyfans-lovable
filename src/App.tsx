@@ -18,6 +18,7 @@ import Earnings from "./pages/Earnings";
 import Collections from "./pages/Collections";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
+import LiveStreamPage from "./pages/LiveStream";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -77,6 +78,11 @@ const App = () => (
             <Route path="/collections" element={
               <ProtectedRoute>
                 <Collections />
+              </ProtectedRoute>
+            } />
+            <Route path="/live/:streamId?" element={
+              <ProtectedRoute>
+                <LiveStreamPage />
               </ProtectedRoute>
             } />
             <Route path="/settings" element={
