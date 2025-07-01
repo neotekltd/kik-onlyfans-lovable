@@ -93,13 +93,10 @@ export const getContentAnalytics = async (
 
 export const getCreatorAnalytics = async (creatorId: string, timeRange?: { start: Date; end: Date }) => {
   try {
-    // Get posts analytics
+    // Get posts analytics - simplified approach to avoid complex joins
     let postsQuery = supabase
       .from('posts')
-      .select(`
-        id,
-        content_analytics(metric_type, value)
-      `)
+      .select('id')
       .eq('creator_id', creatorId);
 
     if (timeRange) {
@@ -111,6 +108,24 @@ export const getCreatorAnalytics = async (creatorId: string, timeRange?: { start
     const { data: postsData, error: postsError } = await postsQuery;
 
     if (postsError) throw postsError;
+
+    // Get analytics for these posts
+    const postIds = postsData?.map(post => post.id) || [];
+    let analyticsData: any[] = [];
+
+    if (postIds.length > 0) {
+      const { data: analytics, error: analyticsError } = await supabase
+        .from('content_analytics')
+        .select('*')
+        .in('content_id', postIds)
+        .eq('content_type', 'post');
+
+      if (analyticsError) {
+        console.error('Error fetching analytics:', analyticsError);
+      } else {
+        analyticsData = analytics || [];
+      }
+    }
 
     // Get revenue data
     let revenueQuery = supabase
@@ -129,15 +144,11 @@ export const getCreatorAnalytics = async (creatorId: string, timeRange?: { start
     if (revenueError) throw revenueError;
 
     // Process analytics data
-    const totalViews = postsData?.reduce((total, post) => {
-      const views = post.content_analytics?.filter((a: any) => a.metric_type === 'view') || [];
-      return total + views.reduce((sum: number, view: any) => sum + (view.value || 1), 0);
-    }, 0) || 0;
+    const totalViews = analyticsData.filter(a => a.metric_type === 'view')
+      .reduce((sum, view) => sum + (view.value || 1), 0);
 
-    const totalLikes = postsData?.reduce((total, post) => {
-      const likes = post.content_analytics?.filter((a: any) => a.metric_type === 'like') || [];
-      return total + likes.reduce((sum: number, like: any) => sum + (like.value || 1), 0);
-    }, 0) || 0;
+    const totalLikes = analyticsData.filter(a => a.metric_type === 'like')
+      .reduce((sum, like) => sum + (like.value || 1), 0);
 
     const totalRevenue = revenueData?.reduce((total, record) => total + record.net_amount, 0) || 0;
 
