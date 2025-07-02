@@ -1,6 +1,6 @@
 
 # Product Requirements Document (PRD)
-## Adult Content Creator Platform
+## Fanilux - Adult Content Creator Platform
 
 ### Executive Summary
 A comprehensive adult content platform that enables creators to monetize their content through subscriptions, pay-per-view messages, live streaming, and direct fan interactions while providing a safe and secure environment for all users.

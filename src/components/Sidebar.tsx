@@ -49,8 +49,8 @@ const Sidebar = () => {
       {/* Logo */}
       <div className="p-6 border-b border-gray-200">
         <h1 className="text-2xl font-bold">
-          <span className="text-brand-600">Kik</span>
-          <span className="text-creator-600">OnlyFans</span>
+          <span className="text-brand-600">Fani</span>
+          <span className="text-creator-600">lux</span>
         </h1>
       </div>
 

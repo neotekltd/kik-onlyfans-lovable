@@ -95,7 +95,7 @@ const Index = () => {
           <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
             Welcome to{" "}
             <span className="bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
-              KikOnlyFans
+              Fanilux
             </span>
           </h1>
           <p className="text-xl text-gray-200 mb-4 max-w-3xl mx-auto">
