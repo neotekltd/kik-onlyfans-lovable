@@ -27,45 +27,40 @@ const Notifications: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock notifications for now - in a real app, you'd fetch from a notifications table
-    const mockNotifications: Notification[] = [
-      {
-        id: '1',
-        type: 'like',
-        message: 'liked your post',
-        read: false,
-        created_at: new Date().toISOString(),
-        actor: {
-          username: 'user123',
-          display_name: 'User 123',
-        }
-      },
-      {
-        id: '2',
-        type: 'tip',
-        message: 'sent you a tip of $10.00',
-        read: false,
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-        actor: {
-          username: 'fan456',
-          display_name: 'Fan 456',
-        }
-      },
-      {
-        id: '3',
-        type: 'follow',
-        message: 'started following you',
-        read: true,
-        created_at: new Date(Date.now() - 7200000).toISOString(),
-        actor: {
-          username: 'newuser',
-          display_name: 'New User',
-        }
-      },
-    ];
+    const fetchNotifications = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user?.id)
+          .order('created_at', { ascending: false });
 
-    setNotifications(mockNotifications);
-    setLoading(false);
+        if (error) throw error;
+        
+        setNotifications(data?.map(notification => ({
+          id: notification.id,
+          type: notification.type as 'like' | 'comment' | 'follow' | 'tip' | 'subscription',
+          message: notification.message || '',
+          read: notification.is_read || false,
+          created_at: notification.created_at || '',
+          actor: {
+            username: 'system',
+            display_name: 'System'
+          }
+        })) || []);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+        setNotifications([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.id) {
+      fetchNotifications();
+    } else {
+      setLoading(false);
+    }
   }, [user]);
 
   const getNotificationIcon = (type: string) => {

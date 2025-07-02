@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCreatorStats } from '@/hooks/useCreatorStats';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,15 +11,8 @@ const Analytics: React.FC = () => {
   const { profile } = useAuth();
   const { stats, loading } = useCreatorStats();
 
-  // Mock data for charts
-  const monthlyData = [
-    { month: 'Jan', earnings: 1200, subscribers: 45 },
-    { month: 'Feb', earnings: 1800, subscribers: 52 },
-    { month: 'Mar', earnings: 2400, subscribers: 61 },
-    { month: 'Apr', earnings: 2100, subscribers: 58 },
-    { month: 'May', earnings: 2800, subscribers: 67 },
-    { month: 'Jun', earnings: 3200, subscribers: 74 },
-  ];
+  // Real analytics data would come from your analytics API
+  const [monthlyData, setMonthlyData] = useState<any[]>([]);
 
   if (!profile?.is_creator) {
     return (

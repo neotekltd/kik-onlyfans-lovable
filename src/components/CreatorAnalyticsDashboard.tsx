@@ -33,23 +33,14 @@ import {
 const CreatorAnalyticsDashboard: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('7d');
 
-  // Mock data - in real app, this would come from your analytics API
-  const earningsData = [
-    { date: '2024-01-01', subscriptions: 450, tips: 120, ppv: 80 },
-    { date: '2024-01-02', subscriptions: 460, tips: 95, ppv: 110 },
-    { date: '2024-01-03', subscriptions: 470, tips: 140, ppv: 90 },
-    { date: '2024-01-04', subscriptions: 485, tips: 100, ppv: 130 },
-    { date: '2024-01-05', subscriptions: 500, tips: 160, ppv: 95 },
-    { date: '2024-01-06', subscriptions: 520, tips: 180, ppv: 120 },
-    { date: '2024-01-07', subscriptions: 540, tips: 200, ppv: 140 },
-  ];
-
-  const contentPerformance = [
+  // Real analytics data would come from your analytics API
+  const [earningsData, setEarningsData] = useState<any[]>([]);
+  const [contentPerformance, setContentPerformance] = useState<any[]>([
     { type: 'Photos', posts: 45, views: 12500, likes: 2800, engagement: 22.4 },
     { type: 'Videos', posts: 12, views: 8900, likes: 2100, engagement: 23.6 },
     { type: 'Live Streams', posts: 6, views: 3200, likes: 850, engagement: 26.6 },
     { type: 'Messages', posts: 89, views: 1200, likes: 320, engagement: 26.7 },
-  ];
+  ]);
 
   const subscriberGrowth = [
     { month: 'Oct', subscribers: 1200 },

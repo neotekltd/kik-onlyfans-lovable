@@ -30,11 +30,6 @@ const Login = () => {
     }
   };
 
-  const demoAccounts = [
-    { email: 'creator@demo.com', password: 'demo123', type: 'Creator Account' },
-    { email: 'subscriber@demo.com', password: 'demo123', type: 'Subscriber Account' }
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-creator-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
@@ -112,29 +107,6 @@ const Login = () => {
                 Sign In
               </Button>
             </form>
-
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <p className="text-sm text-gray-600 text-center mb-4">Demo Accounts:</p>
-              <div className="space-y-2">
-                {demoAccounts.map((account, index) => (
-                  <Button
-                    key={index}
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-left justify-start"
-                    onClick={() => {
-                      setEmail(account.email);
-                      setPassword(account.password);
-                    }}
-                  >
-                    <div className="text-left">
-                      <div className="font-medium">{account.type}</div>
-                      <div className="text-xs text-gray-500">{account.email}</div>
-                    </div>
-                  </Button>
-                ))}
-              </div>
-            </div>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">

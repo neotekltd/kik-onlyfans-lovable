@@ -40,26 +40,7 @@ interface ContentReport {
 }
 
 const ContentModerationPanel: React.FC = () => {
-  const [reports, setReports] = useState<ContentReport[]>([
-    {
-      id: '1',
-      content_type: 'post',
-      reported_content_id: 'post_123',
-      reporter: {
-        username: 'user123',
-        display_name: 'Concerned User'
-      },
-      reason: 'inappropriate_content',
-      description: 'This content violates community guidelines',
-      status: 'pending',
-      created_at: '2024-01-15T10:30:00Z',
-      content_preview: {
-        title: 'Sample Post Title',
-        description: 'This is a sample post description...',
-        creator_name: 'Creator Name'
-      }
-    }
-  ]);
+  const [reports, setReports] = useState<ContentReport[]>([]);
 
   const [selectedReport, setSelectedReport] = useState<ContentReport | null>(null);
   const [moderationNote, setModerationNote] = useState('');
