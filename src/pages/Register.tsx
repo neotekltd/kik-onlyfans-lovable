@@ -7,51 +7,66 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, AlertCircle } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { registerSchema, type RegisterFormData, sanitizeInput } from '@/lib/validations';
+import { useToast } from '@/components/ui/use-toast';
 
 const Register = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    username: '',
-    displayName: ''
-  });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [ageVerified, setAgeVerified] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
+  const { register: registerUser } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    watch,
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+      confirmPassword: '',
+      username: '',
+      displayName: '',
+      ageVerified: false,
+      termsAccepted: false,
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (formData.password !== formData.confirmPassword) {
-      return;
-    }
-
-    if (!ageVerified || !termsAccepted) {
-      return;
-    }
-
-    setLoading(true);
-    
+  const onSubmit = async (data: RegisterFormData) => {
     try {
-      await register(formData.email, formData.password, formData.username, formData.displayName);
+      // Sanitize user inputs
+      const sanitizedData = {
+        email: sanitizeInput(data.email),
+        password: data.password, // Don't sanitize password
+        username: sanitizeInput(data.username),
+        displayName: sanitizeInput(data.displayName),
+      };
+
+      await registerUser(
+        sanitizedData.email, 
+        sanitizedData.password, 
+        sanitizedData.username, 
+        sanitizedData.displayName
+      );
+      
+      toast({
+        title: "Account created successfully!",
+        description: "Welcome to Fanilux! You can now start exploring.",
+      });
+      
       navigate('/dashboard');
-    } catch (error) {
-      console.error('Registration error:', error);
-    } finally {
-      setLoading(false);
+    } catch (error: any) {
+      toast({
+        title: "Registration failed",
+        description: error.message || "Please check your information and try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -81,29 +96,37 @@ const Register = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
                   <Input
                     id="username"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleInputChange}
+                    {...register('username')}
                     placeholder="username"
-                    required
+                    className={errors.username ? 'border-destructive' : ''}
                   />
+                  {errors.username && (
+                    <div className="flex items-center gap-2 text-sm text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      {errors.username.message}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="displayName">Display Name</Label>
                   <Input
                     id="displayName"
-                    name="displayName"
-                    value={formData.displayName}
-                    onChange={handleInputChange}
+                    {...register('displayName')}
                     placeholder="Your Name"
-                    required
+                    className={errors.displayName ? 'border-destructive' : ''}
                   />
+                  {errors.displayName && (
+                    <div className="flex items-center gap-2 text-sm text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      {errors.displayName.message}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -111,13 +134,17 @@ const Register = () => {
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
-                  name="email"
                   type="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
+                  {...register('email')}
                   placeholder="Enter your email"
-                  required
+                  className={errors.email ? 'border-destructive' : ''}
                 />
+                {errors.email && (
+                  <div className="flex items-center gap-2 text-sm text-destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    {errors.email.message}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -125,12 +152,10 @@ const Register = () => {
                 <div className="relative">
                   <Input
                     id="password"
-                    name="password"
                     type={showPassword ? 'text' : 'password'}
-                    value={formData.password}
-                    onChange={handleInputChange}
+                    {...register('password')}
                     placeholder="Create a password"
-                    required
+                    className={errors.password ? 'border-destructive' : ''}
                   />
                   <Button
                     type="button"
@@ -146,6 +171,12 @@ const Register = () => {
                     )}
                   </Button>
                 </div>
+                {errors.password && (
+                  <div className="flex items-center gap-2 text-sm text-destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    {errors.password.message}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -153,12 +184,10 @@ const Register = () => {
                 <div className="relative">
                   <Input
                     id="confirmPassword"
-                    name="confirmPassword"
                     type={showConfirmPassword ? 'text' : 'password'}
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
+                    {...register('confirmPassword')}
                     placeholder="Confirm your password"
-                    required
+                    className={errors.confirmPassword ? 'border-destructive' : ''}
                   />
                   <Button
                     type="button"
@@ -174,38 +203,58 @@ const Register = () => {
                     )}
                   </Button>
                 </div>
+                {errors.confirmPassword && (
+                  <div className="flex items-center gap-2 text-sm text-destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    {errors.confirmPassword.message}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4 pt-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="ageVerified" 
-                    checked={ageVerified}
-                    onCheckedChange={(checked) => setAgeVerified(checked as boolean)}
-                  />
-                  <Label htmlFor="ageVerified" className="text-sm">
-                    I am 18 years of age or older
-                  </Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="ageVerified" 
+                      {...register('ageVerified')}
+                    />
+                    <Label htmlFor="ageVerified" className="text-sm">
+                      I am 18 years of age or older
+                    </Label>
+                  </div>
+                  {errors.ageVerified && (
+                    <div className="flex items-center gap-2 text-sm text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      {errors.ageVerified.message}
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="termsAccepted" 
-                    checked={termsAccepted}
-                    onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
-                  />
-                  <Label htmlFor="termsAccepted" className="text-sm">
-                    I agree to the Terms of Service and Privacy Policy
-                  </Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="termsAccepted" 
+                      {...register('termsAccepted')}
+                    />
+                    <Label htmlFor="termsAccepted" className="text-sm">
+                      I agree to the Terms of Service and Privacy Policy
+                    </Label>
+                  </div>
+                  {errors.termsAccepted && (
+                    <div className="flex items-center gap-2 text-sm text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      {errors.termsAccepted.message}
+                    </div>
+                  )}
                 </div>
               </div>
 
               <Button 
                 type="submit" 
                 className="w-full gradient-creator hover:opacity-90" 
-                disabled={loading || !ageVerified || !termsAccepted || formData.password !== formData.confirmPassword}
+                disabled={isSubmitting}
               >
-                {loading ? (
+                {isSubmitting ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 ) : null}
                 Create Account

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
-import { Camera, Upload } from 'lucide-react';
+import { Camera, Upload, AlertCircle } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { postSchema, type PostFormData, sanitizeInput, validateFile } from '@/lib/validations';
 
 interface PostFormProps {
   onPostCreated?: () => void;
@@ -18,17 +20,52 @@ interface PostFormProps {
 const PostForm: React.FC<PostFormProps> = ({ onPostCreated }) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [isPremium, setIsPremium] = useState(false);
-  const [isPpv, setIsPpv] = useState(false);
-  const [ppvPrice, setPpvPrice] = useState('');
-  const [loading, setLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [fileErrors, setFileErrors] = useState<string[]>([]);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    watch,
+    reset,
+  } = useForm<PostFormData>({
+    resolver: zodResolver(postSchema),
+    defaultValues: {
+      title: '',
+      description: '',
+      isPremium: false,
+      isPpv: false,
+      ppvPrice: '',
+    },
+  });
+
+  const watchIsPpv = watch('isPpv');
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    setSelectedFiles(files);
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+
+    files.forEach((file, index) => {
+      const validation = validateFile(file);
+      if (validation.valid) {
+        validFiles.push(file);
+      } else {
+        errors.push(`File ${index + 1}: ${validation.error}`);
+      }
+    });
+
+    setSelectedFiles(validFiles);
+    setFileErrors(errors);
+
+    if (errors.length > 0) {
+      toast({
+        title: "File validation errors",
+        description: errors.join(', '),
+        variant: "destructive",
+      });
+    }
   };
 
   const uploadFiles = async (postId: string) => {
@@ -57,24 +94,26 @@ const PostForm: React.FC<PostFormProps> = ({ onPostCreated }) => {
     return uploadedUrls;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: PostFormData) => {
     if (!user) return;
 
-    setLoading(true);
     try {
+      // Sanitize inputs
+      const sanitizedTitle = data.title ? sanitizeInput(data.title) : null;
+      const sanitizedDescription = data.description ? sanitizeInput(data.description) : null;
+
       // Create the post first
       const { data: post, error: postError } = await supabase
         .from('posts')
         .insert({
           creator_id: user.id,
-          title: title.trim() || null,
-          description: description.trim() || null,
+          title: sanitizedTitle,
+          description: sanitizedDescription,
           content_type: selectedFiles.length > 0 ? 
-            (selectedFiles[0].type.startsWith('video/') ? 'video' : 'photo') : 'photo',
-          is_premium: isPremium,
-          is_ppv: isPpv,
-          ppv_price: isPpv ? Math.round(parseFloat(ppvPrice) * 100) : null,
+            (selectedFiles[0].type.startsWith('video/') ? 'video' as const : 'photo' as const) : 'photo' as const,
+          is_premium: data.isPremium,
+          is_ppv: data.isPpv,
+          ppv_price: data.isPpv && data.ppvPrice ? Math.round(parseFloat(data.ppvPrice) * 100) : null,
           is_published: true,
         })
         .select()
@@ -101,12 +140,9 @@ const PostForm: React.FC<PostFormProps> = ({ onPostCreated }) => {
       });
 
       // Reset form
-      setTitle('');
-      setDescription('');
-      setIsPremium(false);
-      setIsPpv(false);
-      setPpvPrice('');
+      reset();
       setSelectedFiles([]);
+      setFileErrors([]);
 
       onPostCreated?.();
     } catch (error) {
@@ -116,8 +152,6 @@ const PostForm: React.FC<PostFormProps> = ({ onPostCreated }) => {
         description: "Failed to create post. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -130,26 +164,38 @@ const PostForm: React.FC<PostFormProps> = ({ onPostCreated }) => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
             <Label htmlFor="title">Title (Optional)</Label>
             <Input
               id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              {...register('title')}
               placeholder="Add a title to your post..."
+              className={errors.title ? 'border-destructive' : ''}
             />
+            {errors.title && (
+              <div className="flex items-center gap-2 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4" />
+                {errors.title.message}
+              </div>
+            )}
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              {...register('description')}
               placeholder="What's on your mind?"
               rows={3}
+              className={errors.description ? 'border-destructive' : ''}
             />
+            {errors.description && (
+              <div className="flex items-center gap-2 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4" />
+                {errors.description.message}
+              </div>
+            )}
           </div>
 
           <div>
@@ -177,6 +223,16 @@ const PostForm: React.FC<PostFormProps> = ({ onPostCreated }) => {
                   </p>
                 </div>
               )}
+              {fileErrors.length > 0 && (
+                <div className="mt-2">
+                  {fileErrors.map((error, index) => (
+                    <div key={index} className="flex items-center gap-2 text-sm text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      {error}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -184,8 +240,7 @@ const PostForm: React.FC<PostFormProps> = ({ onPostCreated }) => {
             <div className="flex items-center space-x-2">
               <Switch
                 id="premium"
-                checked={isPremium}
-                onCheckedChange={setIsPremium}
+                {...register('isPremium')}
               />
               <Label htmlFor="premium">Premium Content</Label>
             </div>
@@ -195,30 +250,37 @@ const PostForm: React.FC<PostFormProps> = ({ onPostCreated }) => {
             <div className="flex items-center space-x-2">
               <Switch
                 id="ppv"
-                checked={isPpv}
-                onCheckedChange={setIsPpv}
+                {...register('isPpv')}
               />
               <Label htmlFor="ppv">Pay-Per-View</Label>
             </div>
-            {isPpv && (
+            {watchIsPpv && (
               <div className="flex items-center space-x-2">
                 <Label htmlFor="ppv-price">Price ($)</Label>
-                <Input
-                  id="ppv-price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={ppvPrice}
-                  onChange={(e) => setPpvPrice(e.target.value)}
-                  className="w-20"
-                  placeholder="0.00"
-                />
+                <div className="space-y-1">
+                  <Input
+                    id="ppv-price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="999.99"
+                    {...register('ppvPrice')}
+                    className={`w-20 ${errors.ppvPrice ? 'border-destructive' : ''}`}
+                    placeholder="0.00"
+                  />
+                  {errors.ppvPrice && (
+                    <div className="flex items-center gap-2 text-sm text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      {errors.ppvPrice.message}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
 
-          <Button type="submit" disabled={loading} className="w-full gradient-bg">
-            {loading ? 'Creating...' : 'Create Post'}
+          <Button type="submit" disabled={isSubmitting} className="w-full gradient-bg">
+            {isSubmitting ? 'Creating...' : 'Create Post'}
           </Button>
         </form>
       </CardContent>
