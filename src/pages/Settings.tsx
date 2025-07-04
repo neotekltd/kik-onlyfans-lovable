@@ -13,9 +13,10 @@ import { Settings as SettingsIcon, User, Bell, Shield, CreditCard } from 'lucide
 import MainLayout from '@/layouts/MainLayout';
 
 const Settings: React.FC = () => {
-  const { user, profile, updateProfile } = useAuth();
+  const { user, profile, updateProfile, optOutOfCreator } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [optOutLoading, setOptOutLoading] = useState(false);
   const [formData, setFormData] = useState({
     display_name: profile?.display_name || '',
     username: profile?.username || '',
@@ -34,6 +35,21 @@ const Settings: React.FC = () => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleOptOutOfCreator = async () => {
+    if (!confirm('Are you sure you want to opt out of creator status? This action cannot be undone and will permanently delete your creator profile, earnings history, and subscriber data.')) {
+      return;
+    }
+
+    setOptOutLoading(true);
+    try {
+      await optOutOfCreator();
+    } catch (error) {
+      console.error('Error opting out of creator status:', error);
+    } finally {
+      setOptOutLoading(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -255,6 +271,21 @@ const Settings: React.FC = () => {
                 <Button variant="outline">Payout Settings</Button>
                 <Button variant="outline">Tax Information</Button>
                 <Button variant="outline">Subscription Plans</Button>
+                <Separator />
+                <div className="pt-4">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Danger Zone</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Opting out of creator status will permanently remove your creator profile, 
+                    earnings history, and all associated data. This action cannot be undone.
+                  </p>
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleOptOutOfCreator}
+                    disabled={optOutLoading}
+                  >
+                    {optOutLoading ? 'Processing...' : 'Opt Out of Creator Status'}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}

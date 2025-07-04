@@ -48,6 +48,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   becomeCreator: (subscriptionPrice: number, categories: string[]) => Promise<void>;
+  optOutOfCreator: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -282,6 +283,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const optOutOfCreator = async () => {
+    if (!user || !profile) return;
+
+    try {
+      // Update profile to remove creator status
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ is_creator: false })
+        .eq('id', user.id);
+
+      if (profileError) throw profileError;
+
+      // Delete creator profile
+      const { error: creatorError } = await supabase
+        .from('creator_profiles')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (creatorError) throw creatorError;
+
+      setProfile(prev => prev ? { ...prev, is_creator: false } : null);
+      setCreatorProfile(null);
+
+      toast({
+        title: "Creator status removed",
+        description: "You've successfully opted out of creator status.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to opt out",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   const refreshProfile = async () => {
     if (user) {
       await fetchProfile(user.id);
@@ -300,6 +338,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout,
       updateProfile,
       becomeCreator,
+      optOutOfCreator,
       refreshProfile
     }}>
       {children}
