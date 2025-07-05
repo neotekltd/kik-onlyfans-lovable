@@ -9,6 +9,66 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      age_verification_documents: {
+        Row: {
+          admin_notes: string | null
+          back_document_url: string | null
+          created_at: string | null
+          document_type: string
+          front_document_url: string | null
+          id: string
+          review_date: string | null
+          reviewed_by: string | null
+          status: string | null
+          submission_date: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          back_document_url?: string | null
+          created_at?: string | null
+          document_type: string
+          front_document_url?: string | null
+          id?: string
+          review_date?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          submission_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          back_document_url?: string | null
+          created_at?: string | null
+          document_type?: string
+          front_document_url?: string | null
+          id?: string
+          review_date?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          submission_date?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "age_verification_documents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "age_verification_documents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collection_posts: {
         Row: {
           collection_id: string | null

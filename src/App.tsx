@@ -18,6 +18,7 @@ import Earnings from "./pages/Earnings";
 import Collections from "./pages/Collections";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
+import AgeVerificationAdmin from "./pages/AgeVerificationAdmin";
 import LiveStreamPage from "./pages/LiveStream";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -88,6 +89,11 @@ const App = () => (
             <Route path="/settings" element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/verification" element={
+              <ProtectedRoute>
+                <AgeVerificationAdmin />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />

@@ -12,6 +12,7 @@ import { Camera, Upload, AlertCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { postSchema, type PostFormData, sanitizeInput, validateFile } from '@/lib/validations';
+import AccessRestriction from './AccessRestriction';
 
 interface PostFormProps {
   onPostCreated?: () => void;
@@ -156,7 +157,8 @@ const PostForm: React.FC<PostFormProps> = ({ onPostCreated }) => {
   };
 
   return (
-    <Card>
+    <AccessRestriction requiredVerification={true}>
+      <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Camera className="h-5 w-5" />
@@ -284,7 +286,8 @@ const PostForm: React.FC<PostFormProps> = ({ onPostCreated }) => {
           </Button>
         </form>
       </CardContent>
-    </Card>
+      </Card>
+    </AccessRestriction>
   );
 };
 

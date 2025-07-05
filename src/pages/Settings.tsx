@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { Settings as SettingsIcon, User, Bell, Shield, CreditCard } from 'lucide-react';
 import MainLayout from '@/layouts/MainLayout';
+import AgeVerification from '@/components/AgeVerification';
 
 const Settings: React.FC = () => {
   const { user, profile, updateProfile, optOutOfCreator } = useAuth();
@@ -234,6 +235,9 @@ const Settings: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Age Verification */}
+          <AgeVerification />
 
           {/* Privacy & Security */}
           <Card>
