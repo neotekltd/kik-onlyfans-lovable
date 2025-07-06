@@ -15,6 +15,8 @@ interface VerificationDocument {
   document_type: string;
   front_document_url?: string;
   back_document_url?: string;
+  selfie_with_id_url?: string;
+  note_selfie_url?: string;
   status: 'pending' | 'approved' | 'rejected';
   submission_date: string;
   admin_notes?: string;
@@ -208,34 +210,65 @@ const AgeVerificationReview: React.FC = () => {
             {getStatusBadge(selectedDocument.status)}
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <Label>Front of Document</Label>
-              {selectedDocument.front_document_url && (
-                <div className="mt-2">
-                  <img
-                    src={selectedDocument.front_document_url}
-                    alt="Front of ID"
-                    className="max-w-full h-auto rounded-lg border"
-                    style={{ maxHeight: '400px' }}
-                  />
+          <div className="space-y-6">
+            <h3 className="font-medium text-lg">Verification Documents</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label>Front of Document</Label>
+                {selectedDocument.front_document_url && (
+                  <div className="mt-2">
+                    <img
+                      src={selectedDocument.front_document_url}
+                      alt="Front of ID"
+                      className="w-full h-auto rounded-lg border object-cover"
+                      style={{ maxHeight: '300px' }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {selectedDocument.back_document_url && (
+                <div>
+                  <Label>Back of Document</Label>
+                  <div className="mt-2">
+                    <img
+                      src={selectedDocument.back_document_url}
+                      alt="Back of ID"
+                      className="w-full h-auto rounded-lg border object-cover"
+                      style={{ maxHeight: '300px' }}
+                    />
+                  </div>
                 </div>
               )}
-            </div>
 
-            {selectedDocument.back_document_url && (
               <div>
-                <Label>Back of Document</Label>
-                <div className="mt-2">
-                  <img
-                    src={selectedDocument.back_document_url}
-                    alt="Back of ID"
-                    className="max-w-full h-auto rounded-lg border"
-                    style={{ maxHeight: '400px' }}
-                  />
-                </div>
+                <Label>Selfie with ID</Label>
+                {selectedDocument.selfie_with_id_url && (
+                  <div className="mt-2">
+                    <img
+                      src={selectedDocument.selfie_with_id_url}
+                      alt="Selfie holding ID"
+                      className="w-full h-auto rounded-lg border object-cover"
+                      style={{ maxHeight: '300px' }}
+                    />
+                  </div>
+                )}
               </div>
-            )}
+
+              <div>
+                <Label>Selfie with Authorization Note</Label>
+                {selectedDocument.note_selfie_url && (
+                  <div className="mt-2">
+                    <img
+                      src={selectedDocument.note_selfie_url}
+                      alt="Selfie with handwritten note"
+                      className="w-full h-auto rounded-lg border object-cover"
+                      style={{ maxHeight: '300px' }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {selectedDocument.status === 'pending' && (

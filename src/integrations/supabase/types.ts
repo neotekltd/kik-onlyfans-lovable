@@ -17,8 +17,10 @@ export type Database = {
           document_type: string
           front_document_url: string | null
           id: string
+          note_selfie_url: string | null
           review_date: string | null
           reviewed_by: string | null
+          selfie_with_id_url: string | null
           status: string | null
           submission_date: string | null
           updated_at: string | null
@@ -31,8 +33,10 @@ export type Database = {
           document_type: string
           front_document_url?: string | null
           id?: string
+          note_selfie_url?: string | null
           review_date?: string | null
           reviewed_by?: string | null
+          selfie_with_id_url?: string | null
           status?: string | null
           submission_date?: string | null
           updated_at?: string | null
@@ -45,8 +49,10 @@ export type Database = {
           document_type?: string
           front_document_url?: string | null
           id?: string
+          note_selfie_url?: string | null
           review_date?: string | null
           reviewed_by?: string | null
+          selfie_with_id_url?: string | null
           status?: string | null
           submission_date?: string | null
           updated_at?: string | null

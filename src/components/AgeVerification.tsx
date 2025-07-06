@@ -15,6 +15,8 @@ interface AgeVerificationDocument {
   user_id: string;
   front_document_url?: string;
   back_document_url?: string;
+  selfie_with_id_url?: string;
+  note_selfie_url?: string;
   document_type: string;
   status: 'pending' | 'approved' | 'rejected';
   admin_notes?: string;
@@ -28,10 +30,14 @@ const AgeVerification: React.FC = () => {
   const [documentType, setDocumentType] = useState<string>('');
   const [frontFile, setFrontFile] = useState<File | null>(null);
   const [backFile, setBackFile] = useState<File | null>(null);
+  const [selfieWithIdFile, setSelfieWithIdFile] = useState<File | null>(null);
+  const [noteSelfieFile, setNoteSelfieFile] = useState<File | null>(null);
   const [existingDocument, setExistingDocument] = useState<AgeVerificationDocument | null>(null);
   
   const frontInputRef = useRef<HTMLInputElement>(null);
   const backInputRef = useRef<HTMLInputElement>(null);
+  const selfieWithIdInputRef = useRef<HTMLInputElement>(null);
+  const noteSelfieInputRef = useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     if (user) {
@@ -58,7 +64,7 @@ const AgeVerification: React.FC = () => {
     }
   };
 
-  const handleFileChange = (type: 'front' | 'back', file: File | null) => {
+  const handleFileChange = (type: 'front' | 'back' | 'selfie-with-id' | 'note-selfie', file: File | null) => {
     if (!file) return;
 
     // Validate file type
@@ -82,10 +88,19 @@ const AgeVerification: React.FC = () => {
       return;
     }
 
-    if (type === 'front') {
-      setFrontFile(file);
-    } else {
-      setBackFile(file);
+    switch (type) {
+      case 'front':
+        setFrontFile(file);
+        break;
+      case 'back':
+        setBackFile(file);
+        break;
+      case 'selfie-with-id':
+        setSelfieWithIdFile(file);
+        break;
+      case 'note-selfie':
+        setNoteSelfieFile(file);
+        break;
     }
   };
 
@@ -93,7 +108,7 @@ const AgeVerification: React.FC = () => {
     const filePath = `${user!.id}/${fileName}`;
     
     const { error: uploadError } = await supabase.storage
-      .from('age-verification')
+      .from('verification-docs')
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: true
@@ -102,17 +117,17 @@ const AgeVerification: React.FC = () => {
     if (uploadError) throw uploadError;
 
     const { data: { publicUrl } } = supabase.storage
-      .from('age-verification')
+      .from('verification-docs')
       .getPublicUrl(filePath);
 
     return publicUrl;
   };
 
   const handleSubmit = async () => {
-    if (!user || !documentType || !frontFile) {
+    if (!user || !documentType || !frontFile || !selfieWithIdFile || !noteSelfieFile) {
       toast({
         title: "Missing information",
-        description: "Please select document type and upload at least the front of your ID.",
+        description: "Please complete all required fields: document type, ID photo, selfie with ID, and selfie with handwritten note.",
         variant: "destructive",
       });
       return;
@@ -120,12 +135,14 @@ const AgeVerification: React.FC = () => {
 
     setLoading(true);
     try {
-      // Upload files
+      // Upload all files
       const frontUrl = await uploadFile(frontFile, `front_${Date.now()}.${frontFile.name.split('.').pop()}`);
       let backUrl = null;
       if (backFile) {
         backUrl = await uploadFile(backFile, `back_${Date.now()}.${backFile.name.split('.').pop()}`);
       }
+      const selfieWithIdUrl = await uploadFile(selfieWithIdFile, `selfie_id_${Date.now()}.${selfieWithIdFile.name.split('.').pop()}`);
+      const noteSelfieUrl = await uploadFile(noteSelfieFile, `note_selfie_${Date.now()}.${noteSelfieFile.name.split('.').pop()}`);
 
       // Insert verification document record
       const { error } = await supabase
@@ -135,6 +152,8 @@ const AgeVerification: React.FC = () => {
           document_type: documentType,
           front_document_url: frontUrl,
           back_document_url: backUrl,
+          selfie_with_id_url: selfieWithIdUrl,
+          note_selfie_url: noteSelfieUrl,
           status: 'pending'
         });
 
@@ -150,18 +169,22 @@ const AgeVerification: React.FC = () => {
 
       toast({
         title: "Verification submitted",
-        description: "Your ID has been submitted for review. You'll be notified once it's processed.",
+        description: "Your verification documents have been submitted for review. You'll be notified once they're processed.",
       });
 
       // Refresh the page data
       fetchExistingDocument();
       setFrontFile(null);
       setBackFile(null);
+      setSelfieWithIdFile(null);
+      setNoteSelfieFile(null);
       setDocumentType('');
       
       // Clear file inputs
       if (frontInputRef.current) frontInputRef.current.value = '';
       if (backInputRef.current) backInputRef.current.value = '';
+      if (selfieWithIdInputRef.current) selfieWithIdInputRef.current.value = '';
+      if (noteSelfieInputRef.current) noteSelfieInputRef.current.value = '';
 
     } catch (error: any) {
       toast({
@@ -259,14 +282,13 @@ const AgeVerification: React.FC = () => {
           Age Verification
         </CardTitle>
         <CardDescription>
-          Upload a government-issued ID to verify your age and unlock platform features
+          Complete identity verification by uploading your government ID and selfie photos for manual review
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <Alert>
           <AlertDescription>
-            To comply with legal requirements and access all platform features, please upload a clear photo of your government-issued ID. 
-            Your documents are stored securely and only reviewed by authorized personnel.
+            To comply with legal requirements (2257) and access all platform features, please upload your government-issued ID, a selfie holding your ID, and a selfie with a handwritten authorization note. All documents are stored securely and reviewed by authorized personnel only.
           </AlertDescription>
         </Alert>
 
@@ -321,22 +343,63 @@ const AgeVerification: React.FC = () => {
               )}
             </div>
           </div>
+
+          <div>
+            <Label htmlFor="selfie-with-id-upload">Selfie Holding Your ID *</Label>
+            <div className="mt-2">
+              <Input
+                ref={selfieWithIdInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange('selfie-with-id', e.target.files?.[0] || null)}
+                className="cursor-pointer"
+              />
+              {selfieWithIdFile && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Selected: {selfieWithIdFile.name}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="note-selfie-upload">Selfie with Handwritten Note *</Label>
+            <div className="mt-2">
+              <Input
+                ref={noteSelfieInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange('note-selfie', e.target.files?.[0] || null)}
+                className="cursor-pointer"
+              />
+              {noteSelfieFile && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Selected: {noteSelfieFile.name}
+                </p>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Note must read: "I authorize Fanilux to verify my age and sex in order for me to become a fully verified creator under law. {new Date().toLocaleDateString()}"
+            </p>
+          </div>
         </div>
 
         <div className="bg-muted p-4 rounded-lg">
           <h4 className="font-medium mb-2">Requirements:</h4>
           <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• Document must be government-issued</li>
-            <li>• Photo must be clear and all text readable</li>
+            <li>• Document must be government-issued and current</li>
+            <li>• All photos must be clear and all text readable</li>
             <li>• Full document must be visible in frame</li>
-            <li>• File size must be under 10MB</li>
+            <li>• Selfie must clearly show your face and the ID</li>
+            <li>• Handwritten note must be legible and include today's date</li>
+            <li>• File size must be under 10MB each</li>
             <li>• Supported formats: JPEG, PNG, WebP</li>
           </ul>
         </div>
 
         <Button 
           onClick={handleSubmit} 
-          disabled={loading || !documentType || !frontFile}
+          disabled={loading || !documentType || !frontFile || !selfieWithIdFile || !noteSelfieFile}
           className="w-full"
         >
           {loading ? (

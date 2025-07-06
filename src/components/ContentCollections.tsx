@@ -20,6 +20,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import AccessRestriction from './AccessRestriction';
 
 interface Collection {
   id: string;
@@ -223,7 +224,8 @@ const ContentCollections: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <AccessRestriction>
+      <div className="space-y-6">
       {/* Create New Collection */}
       <Card>
         <CardHeader>
@@ -413,7 +415,7 @@ const ContentCollections: React.FC = () => {
           </Card>
         )}
       </div>
-    </div>
+    </AccessRestriction>
   );
 };
 
