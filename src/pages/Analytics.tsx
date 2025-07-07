@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCreatorStats } from '@/hooks/useCreatorStats';
+import { useUserDashboard } from '@/hooks/useUserDashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { DollarSign, Users, Eye, TrendingUp } from 'lucide-react';
@@ -9,10 +9,7 @@ import MainLayout from '@/layouts/MainLayout';
 
 const Analytics: React.FC = () => {
   const { profile } = useAuth();
-  const { stats, loading } = useCreatorStats();
-
-  // Real analytics data would come from your analytics API
-  const [monthlyData, setMonthlyData] = useState<any[]>([]);
+  const { stats, loading } = useUserDashboard();
 
   if (!profile?.is_creator) {
     return (
@@ -66,7 +63,7 @@ const Analytics: React.FC = () => {
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalSubscribers}</div>
               <p className="text-xs text-muted-foreground">
-                +{stats.recentSubscribers} this week
+                {stats.recentSubscribers > 0 ? `+${stats.recentSubscribers} this week` : 'No new subscribers this week'}
               </p>
             </CardContent>
           </Card>
@@ -79,7 +76,7 @@ const Analytics: React.FC = () => {
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalPosts}</div>
               <p className="text-xs text-muted-foreground">
-                {stats.engagementRate.toFixed(1)} avg engagement
+                {stats.totalViews.toLocaleString()} total views
               </p>
             </CardContent>
           </Card>
@@ -90,8 +87,8 @@ const Analytics: React.FC = () => {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">+12.5%</div>
-              <p className="text-xs text-muted-foreground">vs last month</p>
+              <div className="text-2xl font-bold">{stats.engagementRate.toFixed(1)}%</div>
+              <p className="text-xs text-muted-foreground">avg likes per post</p>
             </CardContent>
           </Card>
         </div>
@@ -104,15 +101,21 @@ const Analytics: React.FC = () => {
               <CardDescription>Your earnings over the last 6 months</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="earnings" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
+              {stats.monthlyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stats.monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="earnings" fill="#8884d8" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No earnings data yet. Start creating content to see your progress!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -122,15 +125,21 @@ const Analytics: React.FC = () => {
               <CardDescription>Subscriber count over time</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="subscribers" stroke="#82ca9d" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+              {stats.monthlyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={stats.monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="subscribers" stroke="#82ca9d" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No subscriber data yet. Grow your audience to see analytics!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

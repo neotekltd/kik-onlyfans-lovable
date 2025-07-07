@@ -6,9 +6,8 @@ import Sidebar from '@/components/Sidebar';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import PlatformStatsGrid from '@/components/dashboard/PlatformStatsGrid';
 import ContentTabs from '@/components/dashboard/ContentTabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import UserDashboardView from '@/components/dashboard/UserDashboardView';
+import { toast } from 'sonner';
 import { Camera, Star, DollarSign } from 'lucide-react';
 
 interface Creator {
@@ -54,7 +53,6 @@ const Dashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('for-you');
   const [becomingCreator, setBecomingCreator] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -139,17 +137,10 @@ const Dashboard: React.FC = () => {
     setBecomingCreator(true);
     try {
       await becomeCreator(9.99, ['general']);
-      toast({
-        title: "Welcome to creators!",
-        description: "Your creator account has been activated. You can now start creating content!",
-      });
+      toast.success('Welcome to creators! Your creator account has been activated.');
     } catch (error) {
       console.error('Error becoming creator:', error);
-      toast({
-        title: "Error",
-        description: "Failed to activate creator account. Please try again.",
-        variant: "destructive",
-      });
+      toast.error('Failed to activate creator account. Please try again.');
     } finally {
       setBecomingCreator(false);
     }
@@ -182,61 +173,22 @@ const Dashboard: React.FC = () => {
           loading={statsLoading}
         />
 
-        {/* Become a Creator Section - Only show for non-creators */}
-        {!profile?.is_creator && (
-          <Card className="mb-8 bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Star className="h-6 w-6" />
-                Ready to Become a Creator?
-              </CardTitle>
-              <CardDescription className="text-purple-100">
-                Start earning money by sharing your content with fans around the world
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="flex items-center gap-3 bg-white/10 rounded-lg p-4">
-                  <Camera className="h-8 w-8 text-white" />
-                  <div>
-                    <h3 className="font-semibold">Share Content</h3>
-                    <p className="text-sm text-purple-100">Photos, videos, and live streams</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 bg-white/10 rounded-lg p-4">
-                  <DollarSign className="h-8 w-8 text-white" />
-                  <div>
-                    <h3 className="font-semibold">Earn Money</h3>
-                    <p className="text-sm text-purple-100">Tips, subscriptions, and PPV</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 bg-white/10 rounded-lg p-4">
-                  <Star className="h-8 w-8 text-white" />
-                  <div>
-                    <h3 className="font-semibold">Build Fanbase</h3>
-                    <p className="text-sm text-purple-100">Connect with your audience</p>
-                  </div>
-                </div>
-              </div>
-              <Button 
-                onClick={handleBecomeCreator}
-                disabled={becomingCreator}
-                size="lg"
-                className="bg-white text-purple-600 hover:bg-gray-100 font-semibold"
-              >
-                {becomingCreator ? 'Activating...' : 'Become a Creator'}
-              </Button>
-            </CardContent>
-          </Card>
+        {/* Show different content based on user type */}
+        {!profile?.is_creator ? (
+          <UserDashboardView
+            onBecomeCreator={handleBecomeCreator}
+            isBecomingCreator={becomingCreator}
+          />
+        ) : (
+          <ContentTabs
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            filteredPosts={filteredPosts}
+            filteredCreators={filteredCreators}
+            searchQuery={searchQuery}
+          />
         )}
 
-        <ContentTabs
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          filteredPosts={filteredPosts}
-          filteredCreators={filteredCreators}
-          searchQuery={searchQuery}
-        />
       </main>
     </div>
   );

@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUserDashboard } from '@/hooks/useUserDashboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { 
   LineChart, 
   Line, 
@@ -31,62 +32,57 @@ import {
 } from 'lucide-react';
 
 const CreatorAnalyticsDashboard: React.FC = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState('7d');
+  const { profile } = useAuth();
+  const { stats, loading } = useUserDashboard();
+  const [selectedPeriod, setSelectedPeriod] = useState('30d');
 
-  // Real analytics data would come from your analytics API
-  const [earningsData, setEarningsData] = useState<any[]>([]);
-  const [contentPerformance, setContentPerformance] = useState<any[]>([
-    { type: 'Photos', posts: 45, views: 12500, likes: 2800, engagement: 22.4 },
-    { type: 'Videos', posts: 12, views: 8900, likes: 2100, engagement: 23.6 },
-    { type: 'Live Streams', posts: 6, views: 3200, likes: 850, engagement: 26.6 },
-    { type: 'Messages', posts: 89, views: 1200, likes: 320, engagement: 26.7 },
-  ]);
+  if (!profile?.is_creator) {
+    return (
+      <div className="text-center py-8">
+        <h3 className="text-lg font-semibold mb-2">Creator Account Required</h3>
+        <p className="text-gray-600">You need a creator account to access analytics.</p>
+      </div>
+    );
+  }
 
-  const subscriberGrowth = [
-    { month: 'Oct', subscribers: 1200 },
-    { month: 'Nov', subscribers: 1450 },
-    { month: 'Dec', subscribers: 1680 },
-    { month: 'Jan', subscribers: 1920 },
-  ];
-
-  const topCountries = [
-    { name: 'United States', value: 45, color: '#8884d8' },
-    { name: 'United Kingdom', value: 20, color: '#82ca9d' },
-    { name: 'Canada', value: 15, color: '#ffc658' },
-    { name: 'Australia', value: 12, color: '#ff7300' },
-    { name: 'Others', value: 8, color: '#8dd1e1' },
-  ];
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const kpis = [
     {
       title: 'Total Earnings',
-      value: '$3,847',
-      change: '+12.5%',
-      trend: 'up',
+      value: `$${(stats.totalEarnings / 100).toFixed(2)}`,
+      change: stats.monthlyEarnings > 0 ? `+$${(stats.monthlyEarnings / 100).toFixed(2)}` : '$0.00',
+      trend: stats.monthlyEarnings > 0 ? 'up' : 'neutral',
       icon: DollarSign,
       color: 'text-green-600'
     },
     {
       title: 'Active Subscribers',
-      value: '1,920',
-      change: '+8.3%',
-      trend: 'up',
+      value: stats.totalSubscribers.toLocaleString(),
+      change: stats.recentSubscribers > 0 ? `+${stats.recentSubscribers}` : 'No new subscribers',
+      trend: stats.recentSubscribers > 0 ? 'up' : 'neutral',
       icon: Users,
       color: 'text-blue-600'
     },
     {
       title: 'Total Views',
-      value: '48.2K',
-      change: '+15.7%',
-      trend: 'up',
+      value: stats.totalViews.toLocaleString(),
+      change: `${stats.totalPosts} posts`,
+      trend: 'neutral',
       icon: Eye,
       color: 'text-purple-600'
     },
     {
       title: 'Engagement Rate',
-      value: '24.3%',
-      change: '-2.1%',
-      trend: 'down',
+      value: `${stats.engagementRate.toFixed(1)}%`,
+      change: 'avg per post',
+      trend: stats.engagementRate > 10 ? 'up' : 'neutral',
       icon: Heart,
       color: 'text-pink-600'
     },
@@ -133,15 +129,18 @@ const CreatorAnalyticsDashboard: React.FC = () => {
                 <div className="flex items-center space-x-1 mt-1">
                   {kpi.trend === 'up' ? (
                     <TrendingUp className="h-3 w-3 text-green-500" />
-                  ) : (
+                  ) : kpi.trend === 'down' ? (
                     <TrendingDown className="h-3 w-3 text-red-500" />
-                  )}
+                  ) : null}
                   <span className={`text-xs ${
-                    kpi.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                    kpi.trend === 'up' ? 'text-green-600' : 
+                    kpi.trend === 'down' ? 'text-red-600' : 'text-gray-500'
                   }`}>
                     {kpi.change}
                   </span>
-                  <span className="text-xs text-gray-500">vs last period</span>
+                  {kpi.trend !== 'neutral' && (
+                    <span className="text-xs text-gray-500">vs last period</span>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -163,17 +162,21 @@ const CreatorAnalyticsDashboard: React.FC = () => {
               <CardTitle>Earnings Overview</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={earningsData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="subscriptions" stroke="#8884d8" name="Subscriptions" />
-                  <Line type="monotone" dataKey="tips" stroke="#82ca9d" name="Tips" />
-                  <Line type="monotone" dataKey="ppv" stroke="#ffc658" name="PPV Messages" />
-                </LineChart>
-              </ResponsiveContainer>
+              {stats.monthlyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={stats.monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="earnings" stroke="#8884d8" name="Earnings ($)" />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No earnings data yet. Start creating content to see your progress!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -184,15 +187,21 @@ const CreatorAnalyticsDashboard: React.FC = () => {
               <CardTitle>Subscriber Growth</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={subscriberGrowth}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="subscribers" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
+              {stats.monthlyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stats.monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="subscribers" fill="#8884d8" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No subscriber data yet. Grow your audience to see analytics!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -203,36 +212,42 @@ const CreatorAnalyticsDashboard: React.FC = () => {
               <CardTitle>Content Performance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {contentPerformance.map((content, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      {content.type === 'Photos' && <Image className="h-5 w-5 text-blue-500" />}
-                      {content.type === 'Videos' && <Video className="h-5 w-5 text-purple-500" />}
-                      {content.type === 'Live Streams' && <Video className="h-5 w-5 text-red-500" />}
-                      {content.type === 'Messages' && <MessageCircle className="h-5 w-5 text-green-500" />}
-                      <div>
-                        <h4 className="font-medium">{content.type}</h4>
-                        <p className="text-sm text-gray-600">{content.posts} posts</p>
+              {stats.contentPerformance.length > 0 ? (
+                <div className="space-y-4">
+                  {stats.contentPerformance.map((content, index) => (
+                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        {content.type === 'Photos' && <Image className="h-5 w-5 text-blue-500" />}
+                        {content.type === 'Videos' && <Video className="h-5 w-5 text-purple-500" />}
+                        {content.type === 'Audios' && <Video className="h-5 w-5 text-green-500" />}
+                        <div>
+                          <h4 className="font-medium">{content.type}</h4>
+                          <p className="text-sm text-gray-600">{content.posts} posts</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-6 text-sm">
+                        <div className="text-center">
+                          <p className="font-medium">{content.views.toLocaleString()}</p>
+                          <p className="text-gray-500">Views</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="font-medium">{content.likes.toLocaleString()}</p>
+                          <p className="text-gray-500">Likes</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="font-medium">{content.engagement.toFixed(1)}%</p>
+                          <p className="text-gray-500">Engagement</p>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-6 text-sm">
-                      <div className="text-center">
-                        <p className="font-medium">{content.views.toLocaleString()}</p>
-                        <p className="text-gray-500">Views</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="font-medium">{content.likes.toLocaleString()}</p>
-                        <p className="text-gray-500">Likes</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="font-medium">{content.engagement}%</p>
-                        <p className="text-gray-500">Engagement</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No content performance data yet.</p>
+                  <p className="text-sm mt-1">Upload some content to see how it performs!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -240,29 +255,12 @@ const CreatorAnalyticsDashboard: React.FC = () => {
         <TabsContent value="demographics" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Audience by Country</CardTitle>
+              <CardTitle>Audience Insights</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-center">
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={topCountries}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {topCountries.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="text-center py-8 text-gray-500">
+                <p>Demographic data coming soon!</p>
+                <p className="text-sm mt-1">We're working on bringing you detailed audience insights.</p>
               </div>
             </CardContent>
           </Card>
