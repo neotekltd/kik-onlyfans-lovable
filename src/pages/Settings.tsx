@@ -8,16 +8,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Settings as SettingsIcon, User, Bell, Shield, CreditCard } from 'lucide-react';
 import MainLayout from '@/layouts/MainLayout';
 import AgeVerification from '@/components/AgeVerification';
+import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 
 const Settings: React.FC = () => {
   const { user, profile, updateProfile, optOutOfCreator } = useAuth();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [optOutLoading, setOptOutLoading] = useState(false);
+  const [showOptOutDialog, setShowOptOutDialog] = useState(false);
   const [formData, setFormData] = useState({
     display_name: profile?.display_name || '',
     username: profile?.username || '',
@@ -39,15 +40,14 @@ const Settings: React.FC = () => {
   };
 
   const handleOptOutOfCreator = async () => {
-    if (!confirm('Are you sure you want to opt out of creator status? This action cannot be undone and will permanently delete your creator profile, earnings history, and subscriber data.')) {
-      return;
-    }
-
     setOptOutLoading(true);
     try {
       await optOutOfCreator();
+      toast.success('Successfully opted out of creator status');
+      setShowOptOutDialog(false);
     } catch (error) {
       console.error('Error opting out of creator status:', error);
+      toast.error('Failed to opt out of creator status. Please try again.');
     } finally {
       setOptOutLoading(false);
     }
@@ -66,17 +66,10 @@ const Settings: React.FC = () => {
       if (error) throw error;
 
       await updateProfile(formData);
-      toast({
-        title: "Success",
-        description: "Profile updated successfully!",
-      });
+      toast.success('Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update profile. Please try again.",
-        variant: "destructive",
-      });
+      toast.error('Failed to update profile. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -284,10 +277,10 @@ const Settings: React.FC = () => {
                   </p>
                   <Button 
                     variant="destructive" 
-                    onClick={handleOptOutOfCreator}
+                    onClick={() => setShowOptOutDialog(true)}
                     disabled={optOutLoading}
                   >
-                    {optOutLoading ? 'Processing...' : 'Opt Out of Creator Status'}
+                    Opt Out of Creator Status
                   </Button>
                 </div>
               </CardContent>
@@ -295,6 +288,18 @@ const Settings: React.FC = () => {
           )}
         </div>
       </div>
+      
+      <ConfirmationDialog
+        open={showOptOutDialog}
+        onOpenChange={setShowOptOutDialog}
+        title="Opt Out of Creator Status"
+        description="Are you sure you want to opt out of creator status? This action cannot be undone and will permanently delete your creator profile, earnings history, and subscriber data."
+        confirmText="Yes, Opt Out"
+        cancelText="Cancel"
+        variant="destructive"
+        onConfirm={handleOptOutOfCreator}
+        loading={optOutLoading}
+      />
     </MainLayout>
   );
 };
