@@ -415,6 +415,7 @@ const ContentCollections: React.FC = () => {
           </Card>
         )}
       </div>
+    </div>
     </AccessRestriction>
   );
 };
