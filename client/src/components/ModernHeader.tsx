@@ -51,7 +51,7 @@ const ModernHeader: React.FC<ModernHeaderProps> = ({ searchQuery, setSearchQuery
             <Heart className="w-4 h-4 text-white" />
           </div>
           <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-            ContentFans
+            Fanixora
           </span>
         </Link>
 
