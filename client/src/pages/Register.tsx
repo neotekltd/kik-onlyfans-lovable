@@ -57,7 +57,7 @@ const Register = () => {
       
       toast({
         title: "Account created successfully!",
-        description: "Welcome to Fanilux! You can now start exploring.",
+        description: "Welcome to Fanixora! You can now start exploring.",
       });
       
       navigate('/dashboard');
@@ -83,7 +83,7 @@ const Register = () => {
             Back to Home
           </Button>
           <h1 className="text-3xl font-bold text-gray-900">
-            Join Fanilux
+            Join Fanixora
           </h1>
           <p className="text-gray-600 mt-2">Create your account and start your journey</p>
         </div>
