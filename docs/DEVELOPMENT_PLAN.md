@@ -1,9 +1,10 @@
 
 # Development Plan
-## Fanilux - Adult Content Creator Platform
+## KikStars - Adult Content Creator Platform
+Previously Fanilux
 
 ### ✅ Recently Completed Tasks
-- **Platform Rebranding**: Changed platform name from "KikOnlyFans" to "Fanilux" across all codebase
+- **Platform Rebranding**: Changed platform name from "Fanilux" to "KikStars" across all codebase
 - **Security Review**: Comprehensive security audit completed, identified critical areas for improvement
 - **Demo Data Cleanup**: Removed all demo accounts and mock data from platform
 - **Security Enhancement Plan**: Created phased implementation plan for security improvements
@@ -15,16 +16,28 @@
 - **Content Access Control**: Insufficient verification of user permissions for premium content
 - **Rate Limiting**: No protection against abuse and DDoS attacks
 - **Data Validation**: Missing sanitization of user-generated content
+- **Two-Factor Authentication**: Missing 2FA implementation for enhanced security
+- **Content Protection**: Lack of DRM and watermarking for premium content
+- **Privacy Controls**: Missing user privacy settings and anonymous browsing
+- **Security Logging**: Insufficient audit logging for security events
 
 ### Phase 1: Foundation (Months 1-3)
 **Goal**: Establish core platform infrastructure and basic functionality
 
-#### Sprint 1-2: Infrastructure & Authentication (Weeks 1-4)
+#### Sprint 1-2: Security & Authentication Enhancement (Weeks 1-4)
 - [x] **Supabase Integration**
   - Set up Supabase project
   - Configure authentication with email/password
   - Implement social login (Google, Twitter)
   - Set up Row Level Security (RLS) policies
+
+- [ ] **Enhanced Security (HIGH PRIORITY)**
+  - Implement 2FA using TOTP
+  - Add security event logging
+  - Set up privacy controls
+  - Implement anonymous browsing mode
+  - Add IP-based restrictions
+  - Set up device management
 
 - [x] **Database Schema**
   - Users table with creator/subscriber roles
