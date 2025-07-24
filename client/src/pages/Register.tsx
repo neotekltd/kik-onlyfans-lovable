@@ -57,7 +57,11 @@ const Register = () => {
       
       toast({
         title: "Account created successfully!",
+<<<<<<< HEAD:src/pages/Register.tsx
         description: "Welcome to KikStars! You can now start exploring.",
+=======
+        description: "Welcome to Fanixora! You can now start exploring.",
+>>>>>>> 00fd3d273c793926873f254f5e90647b563b5bd8:client/src/pages/Register.tsx
       });
       
       navigate('/dashboard');
@@ -83,7 +87,11 @@ const Register = () => {
             Back to Home
           </Button>
           <h1 className="text-3xl font-bold text-gray-900">
+<<<<<<< HEAD:src/pages/Register.tsx
             Join KikStars
+=======
+            Join Fanixora
+>>>>>>> 00fd3d273c793926873f254f5e90647b563b5bd8:client/src/pages/Register.tsx
           </h1>
           <p className="text-gray-600 mt-2">Create your account and start your journey</p>
         </div>
