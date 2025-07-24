@@ -1,9 +1,18 @@
 
 # Product Requirements Document (PRD)
-## Fanilux - Adult Content Creator Platform
+## KikStars - Adult Content Creator Platform
+Previously known as Fanilux
+
+## 📄 1. Document Info
+**Version**: v2.0 (July 2025)  
+**Change Log**:
+- v2.0: Platform renamed to KikStars; UI/UX & security updates
+- v1.0: Initial platform launch as Fanilux
+
+## 🎯 2. Vision & Mission
 
 ### Executive Summary
-A comprehensive adult content platform that enables creators to monetize their content through subscriptions, pay-per-view messages, live streaming, and direct fan interactions while providing a safe and secure environment for all users.
+KikStars empowers adult content creators to monetize their content through subscriptions, PPV, messaging, and tips while providing fans with a secure, engaging experience.
 
 ### Product Vision
 To create the most creator-friendly and user-centric adult content platform that prioritizes creator earnings, user experience, and platform security.
