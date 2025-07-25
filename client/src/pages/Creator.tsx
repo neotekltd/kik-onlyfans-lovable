@@ -10,6 +10,7 @@ import PostForm from '@/components/PostForm';
 import CreatorFeeExpiredAlert from '@/components/CreatorFeeExpiredAlert';
 import StripeConnectSetup from '@/components/StripeConnectSetup';
 import VerificationStatus from '@/components/VerificationStatus';
+import MassMessageForm from '@/components/MassMessageForm';
 
 const Creator: React.FC = () => {
   const { profile, creatorProfile } = useAuth();
@@ -50,6 +51,13 @@ const Creator: React.FC = () => {
         {!isVerified && (
           <div className="mb-6">
             <VerificationStatus />
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        {isPlatformFeeActive && isVerified && (
+          <div className="flex flex-wrap gap-3 mb-8">
+            <MassMessageForm onMessageSent={() => {}} />
           </div>
         )}
 

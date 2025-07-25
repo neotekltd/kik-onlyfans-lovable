@@ -19,9 +19,13 @@ import {
   DollarSign,
   Image as ImageIcon,
   Play,
-  MessageCircle
+  MessageCircle,
+  Lock
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import PPVMessageForm from '@/components/PPVMessageForm';
+import PPVMessageCard from '@/components/PPVMessageCard';
+import { useToast } from '@/components/ui/use-toast';
 
 interface ConversationUser {
   id: string;
@@ -50,14 +54,23 @@ interface Conversation {
   unreadCount: number;
 }
 
+// Add a new interface for PPV purchases
+interface PPVPurchase {
+  id: string;
+  message_id: string;
+  created_at: string;
+}
+
 const Messages = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [ppvPurchases, setPPVPurchases] = useState<PPVPurchase[]>([]);
 
   // Fetch conversations
   useEffect(() => {
@@ -179,6 +192,26 @@ const Messages = () => {
     fetchMessages();
   }, [user, selectedChat]);
 
+  // Fetch PPV purchases
+  useEffect(() => {
+    const fetchPPVPurchases = async () => {
+      if (!user) return;
+      
+      try {
+        const { data } = await supabase
+          .from('ppv_purchases')
+          .select('id, message_id, created_at')
+          .eq('buyer_id', user.id);
+          
+        setPPVPurchases(data || []);
+      } catch (error) {
+        console.error('Error fetching PPV purchases:', error);
+      }
+    };
+    
+    fetchPPVPurchases();
+  }, [user]);
+
   const handleSendMessage = async () => {
     if (!messageText.trim() || !user || !selectedChat || sendingMessage) return;
 
@@ -210,6 +243,29 @@ const Messages = () => {
       console.error('Error sending message:', error);
     } finally {
       setSendingMessage(false);
+    }
+  };
+
+  // Check if a message is unlocked
+  const isMessageUnlocked = (messageId: string) => {
+    return ppvPurchases.some(purchase => purchase.message_id === messageId);
+  };
+
+  // Handle unlocking a message
+  const handleUnlockMessage = async (messageId: string) => {
+    // Refresh the PPV purchases
+    try {
+      const { data } = await supabase
+        .from('ppv_purchases')
+        .select('id, message_id, created_at')
+        .eq('buyer_id', user!.id);
+        
+      setPPVPurchases(data || []);
+      
+      // Refresh messages to update UI
+      fetchMessages();
+    } catch (error) {
+      console.error('Error refreshing PPV purchases:', error);
     }
   };
 
@@ -364,44 +420,61 @@ const Messages = () => {
                   messages.map((message) => {
                     const isOwnMessage = message.sender_id === user?.id;
                     
+                    // Regular message
+                    if (!message.is_ppv) {
+                      return (
+                        <div key={message.id} className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-xs lg:max-w-md ${isOwnMessage ? 'order-2' : 'order-1'}`}>
+                            {message.message_type === 'text' ? (
+                              <div className={`rounded-lg px-4 py-2 ${
+                                isOwnMessage 
+                                  ? 'bg-brand-500 text-white' 
+                                  : 'bg-gray-100 text-gray-900'
+                              }`}>
+                                <p className="text-sm">{message.content}</p>
+                              </div>
+                            ) : message.message_type === 'media' && message.media_url ? (
+                              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="relative">
+                                  <img 
+                                    src={message.media_url} 
+                                    alt="Media message" 
+                                    className={`w-full h-48 object-cover ${message.is_ppv ? 'blur-lg' : ''}`}
+                                  />
+                                  {message.is_ppv && (
+                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                      <div className="text-center text-white">
+                                        <Play className="h-8 w-8 mx-auto mb-2" />
+                                        <p className="text-sm font-medium">Unlock for ${(message.ppv_price || 0) / 100}</p>
+                                        <Button size="sm" className="mt-2 gradient-creator">
+                                          <DollarSign className="h-3 w-3 mr-1" />
+                                          Unlock
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : null}
+                            <p className="text-xs text-gray-500 mt-1 text-right">
+                              {formatDistanceToNow(new Date(message.created_at))} ago
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    // PPV message
                     return (
                       <div key={message.id} className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs lg:max-w-md ${isOwnMessage ? 'order-2' : 'order-1'}`}>
-                          {message.message_type === 'text' ? (
-                            <div className={`rounded-lg px-4 py-2 ${
-                              isOwnMessage 
-                                ? 'bg-brand-500 text-white' 
-                                : 'bg-gray-100 text-gray-900'
-                            }`}>
-                              <p className="text-sm">{message.content}</p>
-                            </div>
-                          ) : message.message_type === 'media' && message.media_url ? (
-                            <div className="border border-gray-200 rounded-lg overflow-hidden">
-                              <div className="relative">
-                                <img 
-                                  src={message.media_url} 
-                                  alt="Media message" 
-                                  className={`w-full h-48 object-cover ${message.is_ppv ? 'blur-lg' : ''}`}
-                                />
-                                {message.is_ppv && (
-                                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                    <div className="text-center text-white">
-                                      <Play className="h-8 w-8 mx-auto mb-2" />
-                                      <p className="text-sm font-medium">Unlock for ${(message.ppv_price || 0) / 100}</p>
-                                      <Button size="sm" className="mt-2 gradient-creator">
-                                        <DollarSign className="h-3 w-3 mr-1" />
-                                        Unlock
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ) : null}
-                          <p className="text-xs text-gray-500 mt-1 text-right">
-                            {formatDistanceToNow(new Date(message.created_at))} ago
-                          </p>
-                        </div>
+                        <PPVMessageCard
+                          message={message}
+                          senderName={isOwnMessage ? 'You' : (selectedConversation.user.display_name || 'User')}
+                          senderAvatar={selectedConversation.user.avatar_url}
+                          isOwn={isOwnMessage}
+                          isUnlocked={isOwnMessage || isMessageUnlocked(message.id)}
+                          onUnlock={() => handleUnlockMessage(message.id)}
+                        />
                       </div>
                     );
                   })
@@ -409,29 +482,39 @@ const Messages = () => {
               </div>
 
               {/* Message Input */}
-              <div className="p-4 border-t border-gray-200">
+              <div className="border-t p-4">
                 <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm">
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <ImageIcon className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    placeholder="Type a message..."
-                    value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                    className="flex-1"
-                  />
-                  <Button 
-                    size="sm" 
-                    className="gradient-bg"
-                    onClick={handleSendMessage}
-                    disabled={!messageText.trim() || sendingMessage}
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
+                  <div className="flex-1 relative">
+                    <Input
+                      placeholder="Type a message..."
+                      value={messageText}
+                      onChange={(e) => setMessageText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                    />
+                  </div>
+                  
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="icon">
+                      <Paperclip className="h-4 w-4" />
+                    </Button>
+                    
+                    <PPVMessageForm 
+                      recipientId={selectedChat}
+                      onMessageSent={() => fetchMessages()}
+                    />
+                    
+                    <Button 
+                      onClick={handleSendMessage}
+                      disabled={!messageText.trim() || sendingMessage}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </>

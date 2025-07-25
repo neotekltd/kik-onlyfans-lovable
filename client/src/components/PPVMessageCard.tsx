@@ -2,154 +2,178 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
-  Lock, 
-  Unlock, 
-  Image, 
-  Video, 
-  Music,
-  FileText,
-  DollarSign
-} from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { Lock, Unlock, Image as ImageIcon, Play, File, DollarSign } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatDistanceToNow } from 'date-fns';
 
 interface PPVMessageCardProps {
   message: {
     id: string;
-    sender: {
-      username: string;
-      display_name: string;
-      avatar_url?: string;
-      is_verified: boolean;
-    };
+    sender_id: string;
     content?: string;
+    message_type: string;
     media_url?: string;
-    message_type: 'text' | 'image' | 'video' | 'audio';
     is_ppv: boolean;
     ppv_price?: number;
     created_at: string;
-    is_purchased?: boolean;
   };
-  onPurchase?: (messageId: string) => void;
+  senderName: string;
+  senderAvatar?: string;
+  isOwn?: boolean;
+  isUnlocked?: boolean;
+  onUnlock?: () => void;
 }
 
-const PPVMessageCard: React.FC<PPVMessageCardProps> = ({ message, onPurchase }) => {
-  const [isUnlocking, setIsUnlocking] = useState(false);
+const PPVMessageCard: React.FC<PPVMessageCardProps> = ({
+  message,
+  senderName,
+  senderAvatar,
+  isOwn = false,
+  isUnlocked = false,
+  onUnlock
+}) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [unlocked, setUnlocked] = useState(isUnlocked);
+
+  const handleUnlock = async () => {
+    if (!user || !message.ppv_price) return;
+    
+    setLoading(true);
+    
+    try {
+      // In a real implementation, this would integrate with Stripe or another payment processor
+      // For now, we'll simulate a successful payment and record the purchase
+      
+      const { error } = await supabase
+        .from('ppv_purchases')
+        .insert({
+          buyer_id: user.id,
+          seller_id: message.sender_id,
+          message_id: message.id,
+          amount: message.ppv_price,
+        });
+        
+      if (error) throw error;
+      
+      setUnlocked(true);
+      toast({
+        title: "Content unlocked!",
+        description: `You've successfully unlocked this content for $${(message.ppv_price / 100).toFixed(2)}`,
+      });
+      
+      onUnlock?.();
+    } catch (error) {
+      console.error('Error unlocking content:', error);
+      toast({
+        title: "Failed to unlock content",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getMediaIcon = () => {
     switch (message.message_type) {
       case 'image':
-        return <Image className="h-4 w-4" />;
+        return <ImageIcon className="h-5 w-5" />;
       case 'video':
-        return <Video className="h-4 w-4" />;
-      case 'audio':
-        return <Music className="h-4 w-4" />;
+        return <Play className="h-5 w-5" />;
       default:
-        return <FileText className="h-4 w-4" />;
+        return <File className="h-5 w-5" />;
     }
   };
 
-  const handlePurchase = async () => {
-    if (onPurchase) {
-      setIsUnlocking(true);
-      try {
-        await onPurchase(message.id);
-      } finally {
-        setIsUnlocking(false);
-      }
+  const getMediaTypeLabel = () => {
+    switch (message.message_type) {
+      case 'image':
+        return 'Image';
+      case 'video':
+        return 'Video';
+      default:
+        return 'File';
     }
   };
-
-  const isLocked = message.is_ppv && !message.is_purchased;
 
   return (
-    <Card className={`${isLocked ? 'border-2 border-dashed border-purple-300 bg-purple-50' : ''}`}>
-      <CardContent className="p-4">
-        <div className="flex items-start space-x-3">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={message.sender.avatar_url} />
-            <AvatarFallback>{message.sender.display_name.charAt(0)}</AvatarFallback>
-          </Avatar>
-          
-          <div className="flex-1">
-            <div className="flex items-center space-x-2 mb-2">
-              <span className="font-medium text-gray-900">{message.sender.display_name}</span>
-              <span className="text-sm text-gray-500">@{message.sender.username}</span>
-              {message.sender.is_verified && (
-                <Badge variant="secondary" className="text-xs">✓ Verified</Badge>
-              )}
-              <span className="text-xs text-gray-400">
-                {new Date(message.created_at).toLocaleDateString()}
-              </span>
+    <Card className={`overflow-hidden ${isOwn ? 'ml-auto' : 'mr-auto'} max-w-[80%] shadow-sm`}>
+      <CardContent className="p-3">
+        {/* Message header with sender info */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{isOwn ? 'You' : senderName}</span>
+            <span>•</span>
+            <span>{formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}</span>
+          </div>
+          {message.is_ppv && !isOwn && (
+            <div className="flex items-center gap-1 text-sm font-medium text-amber-600">
+              <DollarSign className="h-3 w-3" />
+              <span>${(message.ppv_price! / 100).toFixed(2)}</span>
             </div>
-
-            {isLocked ? (
-              <div className="text-center py-8 space-y-4">
-                <Lock className="h-12 w-12 text-purple-400 mx-auto" />
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-1">Premium Content</h4>
-                  <p className="text-sm text-gray-600 mb-3">
-                    Unlock this exclusive {message.message_type} message
-                  </p>
-                  <div className="flex items-center justify-center space-x-2 mb-4">
-                    {getMediaIcon()}
-                    <span className="text-sm font-medium text-purple-600">
-                      Premium {message.message_type}
-                    </span>
-                  </div>
-                  <Button 
-                    onClick={handlePurchase}
-                    disabled={isUnlocking}
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    <DollarSign className="h-4 w-4 mr-1" />
-                    {isUnlocking ? 'Unlocking...' : `Unlock for $${(message.ppv_price! / 100).toFixed(2)}`}
-                  </Button>
+          )}
+        </div>
+        
+        {/* Message content */}
+        {message.content && (
+          <p className="text-sm mb-3">{message.content}</p>
+        )}
+        
+        {/* Media content */}
+        {message.media_url && (
+          <div className="relative rounded-md overflow-hidden bg-black/5">
+            {(unlocked || isOwn) ? (
+              // Unlocked content
+              message.message_type === 'image' ? (
+                <img 
+                  src={message.media_url} 
+                  alt="Message content" 
+                  className="w-full h-auto max-h-80 object-contain"
+                />
+              ) : message.message_type === 'video' ? (
+                <video 
+                  src={message.media_url} 
+                  controls 
+                  className="w-full h-auto max-h-80"
+                />
+              ) : (
+                <div className="flex items-center justify-center p-8">
+                  <File className="h-10 w-10 text-muted-foreground" />
                 </div>
-              </div>
+              )
             ) : (
-              <div className="space-y-3">
-                {message.content && (
-                  <p className="text-gray-800">{message.content}</p>
-                )}
-                
-                {message.media_url && (
-                  <div className="rounded-lg overflow-hidden">
-                    {message.message_type === 'image' && (
-                      <img 
-                        src={message.media_url} 
-                        alt="Message content"
-                        className="w-full max-w-md rounded-lg"
-                      />
-                    )}
-                    {message.message_type === 'video' && (
-                      <video 
-                        src={message.media_url} 
-                        controls
-                        className="w-full max-w-md rounded-lg"
-                      />
-                    )}
-                    {message.message_type === 'audio' && (
-                      <audio 
-                        src={message.media_url} 
-                        controls
-                        className="w-full max-w-md"
-                      />
-                    )}
-                  </div>
-                )}
-
-                {message.is_ppv && message.is_purchased && (
-                  <div className="flex items-center space-x-2 text-green-600">
-                    <Unlock className="h-4 w-4" />
-                    <span className="text-sm font-medium">Unlocked</span>
-                  </div>
-                )}
+              // Locked content
+              <div className="aspect-video bg-gray-100 flex flex-col items-center justify-center p-6">
+                <div className="bg-white/90 rounded-full p-3 mb-3">
+                  <Lock className="h-6 w-6 text-amber-600" />
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  {getMediaIcon()}
+                  <span className="font-medium">{getMediaTypeLabel()}</span>
+                </div>
+                <p className="text-sm text-center text-muted-foreground mb-4">
+                  This content is locked. Pay to unlock.
+                </p>
+                <Button
+                  onClick={handleUnlock}
+                  disabled={loading}
+                  className="flex items-center gap-2"
+                >
+                  {loading ? 'Processing...' : (
+                    <>
+                      <Unlock className="h-4 w-4" />
+                      Unlock for ${(message.ppv_price! / 100).toFixed(2)}
+                    </>
+                  )}
+                </Button>
               </div>
             )}
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
