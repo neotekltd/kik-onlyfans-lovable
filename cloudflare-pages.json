@@ -1,7 +1,7 @@
 {
   "build": {
     "command": "npm run build:client",
-    "destination": "dist",
+    "destination": "dist/public",
     "root_dir": "/",
     "env_vars": {
       "NODE_VERSION": "18.17.0",

@@ -1,0 +1,5 @@
+name = "kikstars-platform"
+compatibility_date = "2024-01-15"
+
+# This is a simplified configuration for Cloudflare Pages
+# Most configuration should be done in the Cloudflare Pages dashboard
