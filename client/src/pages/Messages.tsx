@@ -1,324 +1,430 @@
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import Sidebar from '@/components/Sidebar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 import { 
-  Search, 
+  MessageCircle, 
   Send, 
-  Paperclip, 
+  Image as ImageIcon, 
+  Video, 
+  DollarSign, 
+  Lock, 
+  Star,
+  Paperclip,
+  Smile,
   MoreVertical,
-  Camera,
-  Heart,
-  DollarSign,
-  Image as ImageIcon,
-  Play,
-  MessageCircle
+  Search,
+  Plus
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 
-interface ConversationUser {
+interface Conversation {
   id: string;
-  username: string;
-  display_name: string;
-  avatar_url?: string;
-  is_verified: boolean;
+  participant: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url?: string;
+    is_verified: boolean;
+    is_creator: boolean;
+  };
+  last_message: {
+    content: string;
+    created_at: string;
+    is_ppv: boolean;
+    ppv_price?: number;
+    sender_id: string;
+  };
+  unread_count: number;
 }
 
 interface Message {
   id: string;
   sender_id: string;
   recipient_id: string;
-  content?: string;
-  message_type: string;
+  content: string;
+  message_type: 'text' | 'image' | 'video' | 'audio';
   media_url?: string;
   is_ppv: boolean;
   ppv_price?: number;
-  created_at: string;
   is_read: boolean;
+  created_at: string;
 }
 
-interface Conversation {
-  user: ConversationUser;
-  lastMessage?: Message;
-  unreadCount: number;
-}
-
-const Messages = () => {
-  const { user } = useAuth();
+const Messages: React.FC = () => {
+  const { user, profile } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const [activeConversation, setActiveConversation] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [messageText, setMessageText] = useState('');
+  const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showPPVModal, setShowPPVModal] = useState(false);
+  const [ppvMessage, setPPVMessage] = useState({
+    content: '',
+    price: 0,
+    media_type: 'text' as 'text' | 'image' | 'video'
+  });
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch conversations
+  const activeConversationData = conversations.find(c => c.id === activeConversation);
+
   useEffect(() => {
-    const fetchConversations = async () => {
-      if (!user) return;
-
-      try {
-        // Get all unique conversation partners
-        const { data: messageData } = await supabase
-          .from('messages')
-          .select(`
-            sender_id,
-            recipient_id,
-            content,
-            message_type,
-            media_url,
-            is_ppv,
-            ppv_price,
-            created_at,
-            is_read
-          `)
-          .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
-          .order('created_at', { ascending: false });
-
-        if (!messageData) return;
-
-        // Group messages by conversation partner
-        const conversationMap = new Map<string, Message[]>();
-        
-        messageData.forEach(msg => {
-          const partnerId = msg.sender_id === user.id ? msg.recipient_id : msg.sender_id;
-          if (!conversationMap.has(partnerId)) {
-            conversationMap.set(partnerId, []);
-          }
-          conversationMap.get(partnerId)!.push(msg as Message);
-        });
-
-        // Get profile data for conversation partners
-        const partnerIds = Array.from(conversationMap.keys());
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('id, username, display_name, avatar_url, is_verified')
-          .in('id', partnerIds);
-
-        // Build conversations array
-        const conversationsArray: Conversation[] = [];
-        
-        conversationMap.forEach((msgs, partnerId) => {
-          const profile = profilesData?.find(p => p.id === partnerId);
-          if (!profile) return;
-
-          const lastMessage = msgs[0]; // Most recent message
-          const unreadCount = msgs.filter(msg => 
-            msg.recipient_id === user.id && !msg.is_read
-          ).length;
-
-          conversationsArray.push({
-            user: {
-              id: profile.id,
-              username: profile.username,
-              display_name: profile.display_name,
-              avatar_url: profile.avatar_url || undefined,
-              is_verified: profile.is_verified
-            },
-            lastMessage,
-            unreadCount
-          });
-        });
-
-        // Sort by most recent activity
-        conversationsArray.sort((a, b) => {
-          const aTime = a.lastMessage ? new Date(a.lastMessage.created_at).getTime() : 0;
-          const bTime = b.lastMessage ? new Date(b.lastMessage.created_at).getTime() : 0;
-          return bTime - aTime;
-        });
-
-        setConversations(conversationsArray);
-        
-        // Auto-select first conversation if available
-        if (conversationsArray.length > 0 && !selectedChat) {
-          setSelectedChat(conversationsArray[0].user.id);
-        }
-      } catch (error) {
-        console.error('Error fetching conversations:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchConversations();
-  }, [user]);
+  }, []);
 
-  // Fetch messages for selected conversation
   useEffect(() => {
-    const fetchMessages = async () => {
-      if (!user || !selectedChat) return;
+    if (activeConversation) {
+      fetchMessages(activeConversation);
+    }
+  }, [activeConversation]);
 
-      try {
-        const { data: messagesData } = await supabase
-          .from('messages')
-          .select('*')
-          .or(`and(sender_id.eq.${user.id},recipient_id.eq.${selectedChat}),and(sender_id.eq.${selectedChat},recipient_id.eq.${user.id})`)
-          .order('created_at', { ascending: true });
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
-        setMessages(messagesData as Message[] || []);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-        // Mark messages as read
-        await supabase
-          .from('messages')
-          .update({ is_read: true })
-          .eq('sender_id', selectedChat)
-          .eq('recipient_id', user.id)
-          .eq('is_read', false);
-      } catch (error) {
-        console.error('Error fetching messages:', error);
-      }
-    };
-
-    fetchMessages();
-  }, [user, selectedChat]);
-
-  const handleSendMessage = async () => {
-    if (!messageText.trim() || !user || !selectedChat || sendingMessage) return;
-
-    setSendingMessage(true);
+  const fetchConversations = async () => {
     try {
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          sender_id: user.id,
-          recipient_id: selectedChat,
-          content: messageText.trim(),
-          message_type: 'text',
-          is_ppv: false
-        });
-
-      if (error) throw error;
-
-      setMessageText('');
+      setLoading(true);
       
-      // Refresh messages
-      const { data: messagesData } = await supabase
-        .from('messages')
-        .select('*')
-        .or(`and(sender_id.eq.${user.id},recipient_id.eq.${selectedChat}),and(sender_id.eq.${selectedChat},recipient_id.eq.${user.id})`)
-        .order('created_at', { ascending: true });
+      // Mock data for now - would fetch from API
+      const mockConversations: Conversation[] = [
+        {
+          id: 'conv_1',
+          participant: {
+            id: 'user_1',
+            username: 'sarah_model',
+            display_name: 'Sarah ✨',
+            avatar_url: '/placeholder.svg',
+            is_verified: true,
+            is_creator: true
+          },
+          last_message: {
+            content: 'Hey! Check out my new photo set 📸',
+            created_at: new Date().toISOString(),
+            is_ppv: false,
+            sender_id: 'user_1'
+          },
+          unread_count: 2
+        },
+        {
+          id: 'conv_2',
+          participant: {
+            id: 'user_2',
+            username: 'alex_creator',
+            display_name: 'Alex',
+            avatar_url: '/placeholder.svg',
+            is_verified: false,
+            is_creator: true
+          },
+          last_message: {
+            content: 'Exclusive video just for you! 💕',
+            created_at: new Date(Date.now() - 3600000).toISOString(),
+            is_ppv: true,
+            ppv_price: 1500,
+            sender_id: 'user_2'
+          },
+          unread_count: 0
+        }
+      ];
+      
+      setConversations(mockConversations);
+      if (mockConversations.length > 0) {
+        setActiveConversation(mockConversations[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      toast.error('Failed to load conversations');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      setMessages(messagesData as Message[] || []);
+  const fetchMessages = async (conversationId: string) => {
+    try {
+      // Mock messages - would fetch from API
+      const mockMessages: Message[] = [
+        {
+          id: 'msg_1',
+          sender_id: 'user_1',
+          recipient_id: user?.id || '',
+          content: 'Hey there! Welcome to my page 💕',
+          message_type: 'text',
+          is_ppv: false,
+          is_read: true,
+          created_at: new Date(Date.now() - 86400000).toISOString()
+        },
+        {
+          id: 'msg_2',
+          sender_id: user?.id || '',
+          recipient_id: 'user_1',
+          content: 'Thanks! Love your content',
+          message_type: 'text',
+          is_ppv: false,
+          is_read: true,
+          created_at: new Date(Date.now() - 82800000).toISOString()
+        },
+        {
+          id: 'msg_3',
+          sender_id: 'user_1',
+          recipient_id: user?.id || '',
+          content: 'I have something special just for you! 😘',
+          message_type: 'image',
+          media_url: '/placeholder-content.jpg',
+          is_ppv: true,
+          ppv_price: 1000,
+          is_read: false,
+          created_at: new Date(Date.now() - 3600000).toISOString()
+        },
+        {
+          id: 'msg_4',
+          sender_id: 'user_1',
+          recipient_id: user?.id || '',
+          content: 'Hey! Check out my new photo set 📸',
+          message_type: 'text',
+          is_ppv: false,
+          is_read: false,
+          created_at: new Date().toISOString()
+        }
+      ];
+      
+      setMessages(mockMessages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      toast.error('Failed to load messages');
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !activeConversation || !user) return;
+
+    try {
+      setSendingMessage(true);
+      
+      const messageData = {
+        sender_id: user.id,
+        recipient_id: activeConversationData?.participant.id,
+        content: newMessage,
+        message_type: 'text' as const,
+        is_ppv: false
+      };
+
+      const response = await fetch('/api/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messageData)
+      });
+
+      if (response.ok) {
+        const message = await response.json();
+        setMessages(prev => [...prev, message]);
+        setNewMessage('');
+        toast.success('Message sent!');
+      } else {
+        toast.error('Failed to send message');
+      }
     } catch (error) {
       console.error('Error sending message:', error);
+      toast.error('Failed to send message');
     } finally {
       setSendingMessage(false);
     }
   };
 
-  const selectedConversation = conversations.find(c => c.user.id === selectedChat);
-  const totalUnread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
+  const sendPPVMessage = async () => {
+    if (!ppvMessage.content.trim() || !activeConversation || !user) return;
+
+    try {
+      setSendingMessage(true);
+      
+      const messageData = {
+        sender_id: user.id,
+        recipient_id: activeConversationData?.participant.id,
+        content: ppvMessage.content,
+        message_type: ppvMessage.media_type,
+        is_ppv: true,
+        ppv_price: ppvMessage.price * 100 // Convert to cents
+      };
+
+      const response = await fetch('/api/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messageData)
+      });
+
+      if (response.ok) {
+        const message = await response.json();
+        setMessages(prev => [...prev, message]);
+        setPPVMessage({ content: '', price: 0, media_type: 'text' });
+        setShowPPVModal(false);
+        toast.success('PPV message sent!');
+      } else {
+        toast.error('Failed to send PPV message');
+      }
+    } catch (error) {
+      console.error('Error sending PPV message:', error);
+      toast.error('Failed to send PPV message');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  const purchasePPVMessage = async (messageId: string, price: number) => {
+    if (!user) return;
+
+    try {
+      const response = await fetch('/api/messages/purchase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message_id: messageId,
+          buyer_id: user.id,
+          amount: price
+        })
+      });
+
+      if (response.ok) {
+        // Update message to show as purchased
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === messageId 
+              ? { ...msg, is_read: true }
+              : msg
+          )
+        );
+        toast.success('Content unlocked!');
+      } else {
+        toast.error('Purchase failed');
+      }
+    } catch (error) {
+      console.error('Error purchasing PPV message:', error);
+      toast.error('Purchase failed');
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  const filteredConversations = conversations.filter(conv =>
+    conv.participant.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conv.participant.username.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex">
-        <Sidebar />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-[#13151a] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00aff0] mx-auto mb-4"></div>
+          <p className="text-white">Loading messages...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar />
-      
-      <div className="flex-1 flex">
-        {/* Conversations List */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+    <div className="min-h-screen bg-[#13151a] text-white">
+      <div className="max-w-7xl mx-auto h-screen flex">
+        {/* Conversations Sidebar */}
+        <div className="w-1/3 bg-[#1e2029] border-r border-[#2c2e36] flex flex-col">
           {/* Header */}
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">MESSAGES</h2>
-              <div className="flex items-center space-x-2">
-                <Button variant="ghost" size="sm">
-                  <Search className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="sm">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Filter Tabs */}
-            <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
-              <Button variant="secondary" size="sm" className="flex-1 bg-white shadow-sm">
-                All
-              </Button>
-              <Button variant="ghost" size="sm" className="flex-1 relative">
-                Unread
-                {totalUnread > 0 && (
-                  <Badge variant="secondary" className="ml-1 bg-brand-500 text-white text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                    {totalUnread}
-                  </Badge>
-                )}
-              </Button>
+          <div className="p-4 border-b border-[#2c2e36]">
+            <h1 className="text-xl font-bold mb-4">Messages</h1>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search conversations..."
+                className="pl-10 bg-[#252836] border-[#2c2e36] text-white"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Conversations */}
+          {/* Conversations List */}
           <div className="flex-1 overflow-y-auto">
-            {conversations.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <h3 className="text-lg font-medium mb-2">No Conversations</h3>
-                <p>Start messaging creators to see conversations here</p>
+            {filteredConversations.length === 0 ? (
+              <div className="p-8 text-center">
+                <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-semibold mb-2">No conversations</h3>
+                <p className="text-gray-400">Start a conversation with a creator!</p>
               </div>
             ) : (
-              conversations.map((conversation) => (
+              filteredConversations.map((conversation) => (
                 <div
-                  key={conversation.user.id}
-                  className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                    selectedChat === conversation.user.id ? 'bg-brand-50 border-brand-200' : ''
+                  key={conversation.id}
+                  className={`p-4 border-b border-[#2c2e36] cursor-pointer hover:bg-[#252836] ${
+                    activeConversation === conversation.id ? 'bg-[#252836]' : ''
                   }`}
-                  onClick={() => setSelectedChat(conversation.user.id)}
+                  onClick={() => setActiveConversation(conversation.id)}
                 >
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-center gap-3">
                     <div className="relative">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={conversation.user.avatar_url} />
-                        <AvatarFallback>{conversation.user.display_name.charAt(0)}</AvatarFallback>
-                      </Avatar>
+                      <div className="w-12 h-12 rounded-full overflow-hidden">
+                        <img 
+                          src={conversation.participant.avatar_url || '/placeholder.svg'} 
+                          alt={conversation.participant.display_name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      {conversation.participant.is_verified && (
+                        <div className="absolute -bottom-1 -right-1 bg-[#00aff0] rounded-full p-1">
+                          <Star className="w-2 h-2 text-white" />
+                        </div>
+                      )}
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center space-x-2">
-                          <h4 className="font-semibold text-gray-900 text-sm truncate">
-                            {conversation.user.display_name}
-                          </h4>
-                          {conversation.user.is_verified && (
-                            <Badge variant="secondary" className="text-xs">✓</Badge>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">
+                            {conversation.participant.display_name}
+                          </span>
+                          {conversation.participant.is_creator && (
+                            <Badge variant="secondary" className="text-xs">Creator</Badge>
                           )}
                         </div>
-                        {conversation.lastMessage && (
-                          <span className="text-xs text-gray-500">
-                            {formatDistanceToNow(new Date(conversation.lastMessage.created_at))} ago
-                          </span>
-                        )}
+                        <span className="text-xs text-gray-400">
+                          {formatTime(conversation.last_message.created_at)}
+                        </span>
                       </div>
                       
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          {conversation.lastMessage?.media_url && (
-                            <Camera className="h-3 w-3 text-gray-400" />
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-sm text-gray-400 truncate">
+                          {conversation.last_message.is_ppv && (
+                            <Lock className="w-3 h-3 inline mr-1" />
                           )}
-                          <p className="text-sm text-gray-600 truncate">
-                            {conversation.lastMessage?.content || 
-                             (conversation.lastMessage?.media_url ? 'Media message' : 'No messages yet')}
-                          </p>
-                        </div>
-                        {conversation.unreadCount > 0 && (
-                          <Badge className="bg-brand-500 text-white text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                            {conversation.unreadCount}
+                          {conversation.last_message.content}
+                        </p>
+                        {conversation.unread_count > 0 && (
+                          <Badge className="bg-[#00aff0] text-white text-xs">
+                            {conversation.unread_count}
                           </Badge>
                         )}
                       </div>
@@ -331,121 +437,226 @@ const Messages = () => {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col bg-white">
-          {selectedConversation ? (
+        <div className="flex-1 flex flex-col">
+          {activeConversationData ? (
             <>
               {/* Chat Header */}
-              <div className="p-4 border-b border-gray-200">
+              <div className="p-4 border-b border-[#2c2e36] bg-[#1e2029]">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={selectedConversation.user.avatar_url} />
-                      <AvatarFallback>{selectedConversation.user.display_name.charAt(0)}</AvatarFallback>
-                    </Avatar>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full overflow-hidden">
+                      <img 
+                        src={activeConversationData.participant.avatar_url || '/placeholder.svg'} 
+                        alt={activeConversationData.participant.display_name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">{selectedConversation.user.display_name}</h3>
-                      <p className="text-sm text-gray-500">@{selectedConversation.user.username}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {activeConversationData.participant.display_name}
+                        </span>
+                        {activeConversationData.participant.is_verified && (
+                          <Star className="w-4 h-4 text-[#00aff0]" />
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-400">
+                        @{activeConversationData.participant.username}
+                      </p>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">
-                    <MoreVertical className="h-4 w-4" />
+                  
+                  <Button variant="ghost" size="sm">
+                    <MoreVertical className="w-5 h-5" />
                   </Button>
                 </div>
               </div>
 
               {/* Messages */}
-              <div className="flex-1 p-4 overflow-y-auto space-y-4">
-                {messages.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>No messages yet. Start the conversation!</p>
-                  </div>
-                ) : (
-                  messages.map((message) => {
-                    const isOwnMessage = message.sender_id === user?.id;
-                    
-                    return (
-                      <div key={message.id} className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs lg:max-w-md ${isOwnMessage ? 'order-2' : 'order-1'}`}>
-                          {message.message_type === 'text' ? (
-                            <div className={`rounded-lg px-4 py-2 ${
-                              isOwnMessage 
-                                ? 'bg-brand-500 text-white' 
-                                : 'bg-gray-100 text-gray-900'
-                            }`}>
-                              <p className="text-sm">{message.content}</p>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {messages.map((message) => {
+                  const isOwn = message.sender_id === user?.id;
+                  const isUnlocked = message.is_read || isOwn || !message.is_ppv;
+
+                  return (
+                    <div
+                      key={message.id}
+                      className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`max-w-xs lg:max-w-md ${isOwn ? 'order-1' : 'order-2'}`}>
+                        {message.is_ppv && !isUnlocked ? (
+                          // PPV Message (Locked)
+                          <div className="bg-[#2c2e36] rounded-lg p-4 border border-[#3a3b44]">
+                            <div className="text-center">
+                              <Lock className="w-8 h-8 mx-auto mb-2 text-yellow-500" />
+                              <p className="text-sm text-gray-300 mb-2">Locked Content</p>
+                              <p className="text-lg font-bold text-yellow-500 mb-3">
+                                ${(message.ppv_price! / 100).toFixed(2)}
+                              </p>
+                              <Button
+                                size="sm"
+                                className="bg-yellow-500 hover:bg-yellow-600 text-black"
+                                onClick={() => purchasePPVMessage(message.id, message.ppv_price!)}
+                              >
+                                Unlock
+                              </Button>
                             </div>
-                          ) : message.message_type === 'media' && message.media_url ? (
-                            <div className="border border-gray-200 rounded-lg overflow-hidden">
-                              <div className="relative">
-                                <img 
-                                  src={message.media_url} 
-                                  alt="Media message" 
-                                  className={`w-full h-48 object-cover ${message.is_ppv ? 'blur-lg' : ''}`}
-                                />
-                                {message.is_ppv && (
-                                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                    <div className="text-center text-white">
-                                      <Play className="h-8 w-8 mx-auto mb-2" />
-                                      <p className="text-sm font-medium">Unlock for ${(message.ppv_price || 0) / 100}</p>
-                                      <Button size="sm" className="mt-2 gradient-creator">
-                                        <DollarSign className="h-3 w-3 mr-1" />
-                                        Unlock
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
+                          </div>
+                        ) : (
+                          // Regular Message
+                          <div
+                            className={`rounded-lg px-4 py-2 ${
+                              isOwn
+                                ? 'bg-[#00aff0] text-white'
+                                : 'bg-[#2c2e36] text-white'
+                            }`}
+                          >
+                            {message.media_url && (
+                              <div className="mb-2">
+                                {message.message_type === 'image' ? (
+                                  <img
+                                    src={message.media_url}
+                                    alt="Shared content"
+                                    className="max-w-full rounded"
+                                  />
+                                ) : message.message_type === 'video' ? (
+                                  <video
+                                    src={message.media_url}
+                                    controls
+                                    className="max-w-full rounded"
+                                  />
+                                ) : null}
                               </div>
-                            </div>
-                          ) : null}
-                          <p className="text-xs text-gray-500 mt-1 text-right">
-                            {formatDistanceToNow(new Date(message.created_at))} ago
-                          </p>
-                        </div>
+                            )}
+                            <p className="text-sm">{message.content}</p>
+                            {message.is_ppv && isUnlocked && (
+                              <Badge className="mt-2 bg-yellow-500 text-black text-xs">
+                                PPV Content
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        
+                        <p className={`text-xs text-gray-400 mt-1 ${isOwn ? 'text-right' : 'text-left'}`}>
+                          {formatTime(message.created_at)}
+                        </p>
                       </div>
-                    );
-                  })
-                )}
+                    </div>
+                  );
+                })}
+                <div ref={messagesEndRef} />
               </div>
 
               {/* Message Input */}
-              <div className="p-4 border-t border-gray-200">
-                <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm">
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <ImageIcon className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    placeholder="Type a message..."
-                    value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                    className="flex-1"
-                  />
-                  <Button 
-                    size="sm" 
-                    className="gradient-bg"
-                    onClick={handleSendMessage}
-                    disabled={!messageText.trim() || sendingMessage}
+              <div className="p-4 border-t border-[#2c2e36] bg-[#1e2029]">
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-400 hover:text-white"
                   >
-                    <Send className="h-4 w-4" />
+                    <Paperclip className="w-5 h-5" />
                   </Button>
+                  
+                  {profile?.is_creator && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-yellow-500 hover:text-yellow-400"
+                      onClick={() => setShowPPVModal(true)}
+                    >
+                      <DollarSign className="w-5 h-5" />
+                    </Button>
+                  )}
+                  
+                  <div className="flex-1 relative">
+                    <Input
+                      type="text"
+                      placeholder="Type a message..."
+                      className="bg-[#252836] border-[#2c2e36] text-white pr-12"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                    />
+                    <Button
+                      size="sm"
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 bg-[#00aff0] hover:bg-[#0095cc] h-8 w-8 p-0"
+                      onClick={sendMessage}
+                      disabled={sendingMessage || !newMessage.trim()}
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </>
           ) : (
+            // No conversation selected
             <div className="flex-1 flex items-center justify-center">
-              <div className="text-center text-gray-500">
-                <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <h3 className="text-lg font-medium mb-2">Select a Conversation</h3>
-                <p>Choose a conversation to start messaging</p>
+              <div className="text-center">
+                <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-xl font-semibold mb-2">Select a conversation</h3>
+                <p className="text-gray-400">Choose a conversation to start messaging</p>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* PPV Message Modal */}
+      {showPPVModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="bg-[#1e2029] border-0 w-full max-w-lg">
+            <CardHeader>
+              <CardTitle>Send PPV Message</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="ppv-content">Message</Label>
+                <Textarea
+                  id="ppv-content"
+                  value={ppvMessage.content}
+                  onChange={(e) => setPPVMessage(prev => ({ ...prev, content: e.target.value }))}
+                  className="bg-[#252836] border-[#2c2e36]"
+                  placeholder="Enter your message..."
+                  rows={3}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="ppv-price">Price ($)</Label>
+                <Input
+                  id="ppv-price"
+                  type="number"
+                  value={ppvMessage.price}
+                  onChange={(e) => setPPVMessage(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                  className="bg-[#252836] border-[#2c2e36]"
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  onClick={sendPPVMessage}
+                  className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black"
+                  disabled={sendingMessage || !ppvMessage.content.trim()}
+                >
+                  Send PPV Message
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowPPVModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

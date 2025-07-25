@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPostSchema, insertProfileSchema, insertCreatorProfileSchema } from "@shared/schema";
+import { insertPostSchema, insertProfileSchema, insertCreatorProfileSchema, insertMessageSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -80,6 +80,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/posts/:id", async (req, res) => {
+    try {
+      const updates = req.body;
+      const post = await storage.updatePost(req.params.id, updates);
+      res.json(post);
+    } catch (error) {
+      console.error("Error updating post:", error);
+      res.status(500).json({ error: "Failed to update post" });
+    }
+  });
+
+  app.delete("/api/posts/:id", async (req, res) => {
+    try {
+      const success = await storage.deletePost(req.params.id);
+      if (success) {
+        res.json({ message: "Post deleted successfully" });
+      } else {
+        res.status(404).json({ error: "Post not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      res.status(500).json({ error: "Failed to delete post" });
+    }
+  });
+
   app.post("/api/posts/:id/like", async (req, res) => {
     try {
       // Placeholder for like functionality
@@ -110,6 +135,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Creator posts routes
+  app.get("/api/creators/:id/posts", async (req, res) => {
+    try {
+      const posts = await storage.getPostsByCreator(req.params.id, 20);
+      res.json(posts);
+    } catch (error) {
+      console.error("Error fetching creator posts:", error);
+      res.status(500).json({ error: "Failed to fetch creator posts" });
+    }
+  });
+
   // Creators routes
   app.get("/api/creators", async (req, res) => {
     try {
@@ -129,6 +165,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating creator profile:", error);
       res.status(500).json({ error: "Failed to create creator profile" });
+    }
+  });
+
+  app.get("/api/creators/:id", async (req, res) => {
+    try {
+      const profile = await storage.getProfile(req.params.id);
+      if (!profile || !profile.is_creator) {
+        return res.status(404).json({ error: "Creator not found" });
+      }
+      
+      const creatorProfile = await storage.getCreatorProfile(req.params.id);
+      res.json({ ...profile, creator_profile: creatorProfile });
+    } catch (error) {
+      console.error("Error fetching creator:", error);
+      res.status(500).json({ error: "Failed to fetch creator" });
     }
   });
 
@@ -177,12 +228,226 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/messages", async (req, res) => {
     try {
-      const messageData = req.body;
+      const messageData = insertMessageSchema.parse(req.body);
       const message = await storage.createMessage(messageData);
       res.json(message);
     } catch (error) {
       console.error("Error creating message:", error);
       res.status(500).json({ error: "Failed to create message" });
+    }
+  });
+
+  app.put("/api/messages/:id/read", async (req, res) => {
+    try {
+      const message = await storage.markMessageAsRead(req.params.id);
+      res.json(message);
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      res.status(500).json({ error: "Failed to mark message as read" });
+    }
+  });
+
+  // Subscription routes
+  app.post("/api/subscriptions", async (req, res) => {
+    try {
+      const { subscriber_id, creator_id, amount_paid } = req.body;
+      
+      // Simplified subscription creation (in real app would handle payment processing)
+      res.json({ 
+        id: `sub_${Date.now()}`,
+        subscriber_id,
+        creator_id,
+        amount_paid,
+        status: 'active',
+        created_at: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error creating subscription:", error);
+      res.status(500).json({ error: "Failed to create subscription" });
+    }
+  });
+
+  app.get("/api/subscriptions/:userId", async (req, res) => {
+    try {
+      // Placeholder - would fetch user's subscriptions
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching subscriptions:", error);
+      res.status(500).json({ error: "Failed to fetch subscriptions" });
+    }
+  });
+
+  // Tips routes
+  app.post("/api/tips", async (req, res) => {
+    try {
+      const { tipper_id, creator_id, amount, message } = req.body;
+      
+      // Simplified tip creation (in real app would handle payment processing)
+      res.json({
+        id: `tip_${Date.now()}`,
+        tipper_id,
+        creator_id,
+        amount,
+        message,
+        created_at: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error creating tip:", error);
+      res.status(500).json({ error: "Failed to create tip" });
+    }
+  });
+
+  // Search routes
+  app.get("/api/search", async (req, res) => {
+    try {
+      const { q, type = 'all', limit = 10 } = req.query;
+      
+      if (!q) {
+        return res.status(400).json({ error: "Search query required" });
+      }
+      
+      const query = q as string;
+      
+      let results = {
+        creators: [],
+        posts: []
+      };
+      
+      if (type === 'all' || type === 'creators') {
+        results.creators = await storage.searchProfiles(query, parseInt(limit as string));
+      }
+      
+      if (type === 'all' || type === 'posts') {
+        // Simplified post search - would implement full-text search in real app
+        results.posts = await storage.getPublishedPosts(parseInt(limit as string));
+      }
+      
+      res.json(results);
+    } catch (error) {
+      console.error("Error searching:", error);
+      res.status(500).json({ error: "Failed to search" });
+    }
+  });
+
+  // Notifications routes
+  app.get("/api/notifications/:userId", async (req, res) => {
+    try {
+      // Placeholder - would fetch user notifications
+      res.json([
+        {
+          id: `notif_${Date.now()}`,
+          type: 'new_subscriber',
+          title: 'New Subscriber!',
+          message: 'You have a new subscriber',
+          is_read: false,
+          created_at: new Date().toISOString()
+        }
+      ]);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.put("/api/notifications/:id/read", async (req, res) => {
+    try {
+      // Placeholder for marking notification as read
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ error: "Failed to mark notification as read" });
+    }
+  });
+
+  // Live stream routes
+  app.get("/api/streams", async (req, res) => {
+    try {
+      // Placeholder - would fetch active streams
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching streams:", error);
+      res.status(500).json({ error: "Failed to fetch streams" });
+    }
+  });
+
+  app.post("/api/streams", async (req, res) => {
+    try {
+      const { creator_id, title, description } = req.body;
+      
+      // Simplified stream creation
+      res.json({
+        id: `stream_${Date.now()}`,
+        creator_id,
+        title,
+        description,
+        is_active: true,
+        stream_key: `sk_${Date.now()}`,
+        viewer_count: 0,
+        created_at: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error creating stream:", error);
+      res.status(500).json({ error: "Failed to create stream" });
+    }
+  });
+
+  // File upload routes
+  app.post("/api/upload", async (req, res) => {
+    try {
+      // Placeholder for file upload
+      // In real app would handle multipart/form-data and upload to cloud storage
+      res.json({
+        url: `/placeholder-upload-${Date.now()}.jpg`,
+        type: 'image',
+        size: 1024000
+      });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+
+  // Analytics routes
+  app.get("/api/analytics/:creatorId", async (req, res) => {
+    try {
+      // Placeholder analytics data
+      res.json({
+        total_earnings: 1250.50,
+        total_subscribers: 150,
+        total_posts: 25,
+        monthly_earnings: 850.25,
+        new_subscribers_this_month: 12,
+        top_content: [
+          { id: '1', title: 'Popular Post', views: 245, earnings: 125.50 }
+        ],
+        earnings_chart: [
+          { date: '2024-01', amount: 650.25 },
+          { date: '2024-02', amount: 750.75 },
+          { date: '2024-03', amount: 850.25 }
+        ]
+      });
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
+  // Platform stats
+  app.get("/api/stats", async (req, res) => {
+    try {
+      const creators = await storage.getCreators(1000);
+      const posts = await storage.getPublishedPosts(1000);
+      
+      res.json({
+        total_creators: creators.length,
+        total_posts: posts.length,
+        total_users: creators.length + 500, // Simplified
+        active_streams: 0,
+        total_revenue: 125000.50
+      });
+    } catch (error) {
+      console.error("Error fetching platform stats:", error);
+      res.status(500).json({ error: "Failed to fetch platform stats" });
     }
   });
 
