@@ -1,5 +1,4 @@
-# API routes - proxy to your backend server
-/api/* https://your-backend-domain.com/api/:splat 200
-
 # SPA fallback - all non-API routes should serve index.html
+# Note: Update this with your actual backend URL once deployed
+/api/* https://your-backend-domain.com/api/:splat 200
 /* /index.html 200
