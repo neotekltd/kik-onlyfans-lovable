@@ -67,7 +67,7 @@ const Login = () => {
           <h1 className="text-3xl font-bold text-gray-900">
             Welcome Back
           </h1>
-          <p className="text-gray-600 mt-2">Sign in to your Fanixora account</p>
+          <p className="text-gray-600 mt-2">Sign in to your KikStars account</p>
         </div>
 
         <Card className="shadow-xl border-0">

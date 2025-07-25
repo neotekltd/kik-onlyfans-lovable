@@ -57,7 +57,7 @@ const Register = () => {
       
       toast({
         title: "Account created successfully!",
-        description: "Welcome to Fanixora! You can now start exploring.",
+        description: "Welcome to KikStars! You can now start exploring.",
       });
       
       navigate('/dashboard');
