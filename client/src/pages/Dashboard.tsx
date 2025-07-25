@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePlatformStats } from '@/components/RealDataLoader';
+import { usePlatformStats, useRealUserActivity } from '@/components/RealDataLoader';
 import ModernPostCard from '@/components/ModernPostCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
   Camera, 
@@ -69,6 +70,7 @@ interface Post {
 const Dashboard: React.FC = () => {
   const { user, profile, becomeCreator } = useAuth();
   const { stats: platformStats, loading: statsLoading } = usePlatformStats();
+  const { activity, loading: activityLoading } = useRealUserActivity();
   const [posts, setPosts] = useState<Post[]>([]);
   const [creators, setCreators] = useState<Creator[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,22 +82,71 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Fetch recent published posts
-        const postsResponse = await fetch('/api/posts');
-        const postsData = await postsResponse.json();
-        // Ensure postsData is an array before setting it
-        setPosts(Array.isArray(postsData) ? postsData : []);
+        setLoading(true);
+        
+        // Fetch posts with creator profiles
+        const { data: postsData, error: postsError } = await supabase
+          .from('posts')
+          .select(`
+            *,
+            profiles:creator_id (
+              username,
+              display_name,
+              avatar_url,
+              is_verified
+            )
+          `)
+          .eq('is_published', true)
+          .order('created_at', { ascending: false })
+          .limit(20);
 
-        // Fetch creators
-        const creatorsResponse = await fetch('/api/creators');
-        const creatorsData = await creatorsResponse.json();
-        // Ensure creatorsData is an array before setting it
-        setCreators(Array.isArray(creatorsData) ? creatorsData : []);
+        if (postsError) {
+          console.error('Error fetching posts:', postsError);
+        } else {
+          // Transform the data to match expected format
+          const transformedPosts = postsData?.map(post => ({
+            ...post,
+            profiles: post.profiles as any,
+            like_count: 0, // Will be fetched separately if needed
+            comment_count: 0,
+            view_count: 0
+          })) || [];
+          setPosts(transformedPosts);
+        }
+
+        // Fetch creator profiles
+        const { data: creatorsData, error: creatorsError } = await supabase
+          .from('profiles')
+          .select(`
+            id,
+            username,
+            display_name,
+            avatar_url,
+            is_verified,
+            bio,
+            creator_profiles (
+              total_subscribers,
+              subscription_price
+            )
+          `)
+          .eq('is_creator', true)
+          .limit(10);
+
+        if (creatorsError) {
+          console.error('Error fetching creators:', creatorsError);
+        } else {
+          // Transform creator data
+          const transformedCreators = creatorsData?.map(creator => ({
+            ...creator,
+            total_subscribers: creator.creator_profiles?.[0]?.total_subscribers || 0,
+            subscription_price: creator.creator_profiles?.[0]?.subscription_price || 0
+          })) || [];
+          setCreators(transformedCreators);
+        }
+
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        // Set empty arrays on error
-        setPosts([]);
-        setCreators([]);
+        toast.error('Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
@@ -135,34 +186,190 @@ const Dashboard: React.FC = () => {
   };
 
   const handlePostAction = async (postId: string, action: string) => {
+    if (!user) {
+      toast.error('Please log in to perform this action');
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/posts/${postId}/${action}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      let success = false;
       
-      if (response.ok) {
-        toast.success(`${action} successful`);
-        
-        // Update local state based on action
-        if (action === 'like') {
-          setPosts(prevPosts => 
-            prevPosts.map(post => 
-              post.id === postId ? { ...post, like_count: post.like_count + 1 } : post
-            )
-          );
-        }
+      switch (action) {
+        case 'like':
+          // Check if already liked
+          const { data: existingLike } = await supabase
+            .from('post_likes')
+            .select('id')
+            .eq('post_id', postId)
+            .eq('user_id', user.id)
+            .single();
+
+          if (existingLike) {
+            // Unlike
+            const { error: unlikeError } = await supabase
+              .from('post_likes')
+              .delete()
+              .eq('post_id', postId)
+              .eq('user_id', user.id);
+            
+            if (!unlikeError) {
+              setPosts(prevPosts => 
+                prevPosts.map(post => 
+                  post.id === postId ? { ...post, like_count: Math.max(0, post.like_count - 1) } : post
+                )
+              );
+              toast.success('Post unliked');
+              success = true;
+            }
+          } else {
+            // Like
+            const { error: likeError } = await supabase
+              .from('post_likes')
+              .insert({ post_id: postId, user_id: user.id });
+            
+            if (!likeError) {
+              setPosts(prevPosts => 
+                prevPosts.map(post => 
+                  post.id === postId ? { ...post, like_count: post.like_count + 1 } : post
+                )
+              );
+              toast.success('Post liked');
+              success = true;
+            }
+          }
+          break;
+
+        case 'bookmark':
+          // Check if already bookmarked
+          const { data: existingBookmark } = await supabase
+            .from('bookmarks')
+            .select('id')
+            .eq('post_id', postId)
+            .eq('user_id', user.id)
+            .single();
+
+          if (existingBookmark) {
+            // Remove bookmark
+            const { error: removeError } = await supabase
+              .from('bookmarks')
+              .delete()
+              .eq('post_id', postId)
+              .eq('user_id', user.id);
+            
+            if (!removeError) {
+              toast.success('Bookmark removed');
+              success = true;
+            }
+          } else {
+            // Add bookmark
+            const { error: addError } = await supabase
+              .from('bookmarks')
+              .insert({ post_id: postId, user_id: user.id });
+            
+            if (!addError) {
+              toast.success('Post bookmarked');
+              success = true;
+            }
+          }
+          break;
+
+        case 'share':
+          // Copy link to clipboard
+          if (navigator.share) {
+            await navigator.share({
+              title: 'Check out this post on KikStars',
+              url: `${window.location.origin}/post/${postId}`
+            });
+          } else {
+            await navigator.clipboard.writeText(`${window.location.origin}/post/${postId}`);
+            toast.success('Link copied to clipboard');
+          }
+          success = true;
+          break;
+
+        case 'purchase':
+          // Handle PPV purchase
+          toast.info('PPV purchase functionality coming soon');
+          success = true;
+          break;
+
+        default:
+          toast.error('Unknown action');
       }
+
+      if (!success && action !== 'share') {
+        toast.error(`Failed to ${action} post`);
+      }
+
     } catch (error) {
       console.error(`Error ${action}:`, error);
-      toast.error(`Failed to ${action}`);
+      toast.error(`Failed to ${action} post`);
+    }
+  };
+
+  const handleSubscribe = async (creatorId: string, creatorName: string) => {
+    if (!user) {
+      toast.error('Please log in to subscribe');
+      return;
+    }
+
+    try {
+      // Check if already subscribed
+      const { data: existingSub } = await supabase
+        .from('user_subscriptions')
+        .select('id')
+        .eq('subscriber_id', user.id)
+        .eq('creator_id', creatorId)
+        .eq('status', 'active')
+        .single();
+
+      if (existingSub) {
+        toast.info(`You're already subscribed to ${creatorName}`);
+        return;
+      }
+
+      // Create subscription (simplified - in real app would handle payment)
+      const { error } = await supabase
+        .from('user_subscriptions')
+        .insert({
+          subscriber_id: user.id,
+          creator_id: creatorId,
+          amount_paid: 999, // $9.99 in cents
+          status: 'active',
+          billing_cycle: 'monthly'
+        });
+
+      if (error) throw error;
+
+      toast.success(`Successfully subscribed to ${creatorName}!`);
+      
+      // Update creator subscriber count
+      const { data: creatorProfile } = await supabase
+        .from('creator_profiles')
+        .select('total_subscribers')
+        .eq('user_id', creatorId)
+        .single();
+
+      if (creatorProfile) {
+        await supabase
+          .from('creator_profiles')
+          .update({ total_subscribers: creatorProfile.total_subscribers + 1 })
+          .eq('user_id', creatorId);
+      }
+
+    } catch (error) {
+      console.error('Error subscribing:', error);
+      toast.error('Failed to subscribe. Please try again.');
     }
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
+  };
+
+  const navigateTo = (path: string) => {
+    // For now, show toast indicating navigation would happen
+    toast.info(`Navigating to ${path}`);
   };
 
   if (loading) {
@@ -171,7 +378,7 @@ const Dashboard: React.FC = () => {
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00aff0] mx-auto mb-4"></div>
-            <p className="text-white text-lg">Loading...</p>
+            <p className="text-white text-lg">Loading your feed...</p>
           </div>
         </div>
       </div>
@@ -195,7 +402,7 @@ const Dashboard: React.FC = () => {
             </div>
             <Input
               type="text"
-              placeholder="Search..."
+              placeholder="Search creators and content..."
               className="pl-10 bg-[#1e2029] border-[#2c2e36] text-white w-full rounded-full focus:ring-[#00aff0] focus:border-[#00aff0]"
               value={searchQuery}
               onChange={handleSearch}
@@ -204,13 +411,25 @@ const Dashboard: React.FC = () => {
 
           {/* Right side icons */}
           <div className="flex items-center space-x-5">
-            <button className="text-gray-300 hover:text-white" aria-label="Notifications">
+            <button 
+              className="text-gray-300 hover:text-white" 
+              aria-label="Notifications"
+              onClick={() => navigateTo('/notifications')}
+            >
               <Bell className="h-6 w-6" />
             </button>
-            <button className="text-gray-300 hover:text-white" aria-label="Messages">
+            <button 
+              className="text-gray-300 hover:text-white" 
+              aria-label="Messages"
+              onClick={() => navigateTo('/messages')}
+            >
               <MessageCircle className="h-6 w-6" />
             </button>
-            <button className="text-gray-300 hover:text-white" aria-label="Bookmarks">
+            <button 
+              className="text-gray-300 hover:text-white" 
+              aria-label="Bookmarks"
+              onClick={() => setActiveTab('bookmarks')}
+            >
               <Bookmark className="h-6 w-6" />
             </button>
             <div className="h-8 w-8 rounded-full overflow-hidden">
@@ -233,7 +452,7 @@ const Dashboard: React.FC = () => {
                 <a 
                   href="#" 
                   className={`flex items-center px-3 py-2.5 rounded-lg ${activeTab === 'for-you' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-300 hover:bg-[#1e2029]'}`}
-                  onClick={() => setActiveTab('for-you')}
+                  onClick={(e) => { e.preventDefault(); setActiveTab('for-you'); }}
                 >
                   <Home className="h-5 w-5 mr-3" />
                   <span>For You</span>
@@ -243,7 +462,7 @@ const Dashboard: React.FC = () => {
                 <a 
                   href="#" 
                   className={`flex items-center px-3 py-2.5 rounded-lg ${activeTab === 'following' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-300 hover:bg-[#1e2029]'}`}
-                  onClick={() => setActiveTab('following')}
+                  onClick={(e) => { e.preventDefault(); setActiveTab('following'); }}
                 >
                   <Users className="h-5 w-5 mr-3" />
                   <span>Following</span>
@@ -253,7 +472,7 @@ const Dashboard: React.FC = () => {
                 <a 
                   href="#" 
                   className={`flex items-center px-3 py-2.5 rounded-lg ${activeTab === 'trending' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-300 hover:bg-[#1e2029]'}`}
-                  onClick={() => setActiveTab('trending')}
+                  onClick={(e) => { e.preventDefault(); setActiveTab('trending'); }}
                 >
                   <TrendingUp className="h-5 w-5 mr-3" />
                   <span>Trending</span>
@@ -263,7 +482,7 @@ const Dashboard: React.FC = () => {
                 <a 
                   href="#" 
                   className={`flex items-center px-3 py-2.5 rounded-lg ${activeTab === 'bookmarks' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-300 hover:bg-[#1e2029]'}`}
-                  onClick={() => setActiveTab('bookmarks')}
+                  onClick={(e) => { e.preventDefault(); setActiveTab('bookmarks'); }}
                 >
                   <Bookmark className="h-5 w-5 mr-3" />
                   <span>Bookmarks</span>
@@ -273,13 +492,36 @@ const Dashboard: React.FC = () => {
                 <a 
                   href="#" 
                   className={`flex items-center px-3 py-2.5 rounded-lg ${activeTab === 'settings' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-300 hover:bg-[#1e2029]'}`}
-                  onClick={() => setActiveTab('settings')}
+                  onClick={(e) => { e.preventDefault(); navigateTo('/settings'); }}
                 >
                   <Settings className="h-5 w-5 mr-3" />
                   <span>Settings</span>
                 </a>
               </li>
             </ul>
+
+            <Separator className="my-6 bg-[#2c2e36]" />
+
+            {/* Platform Stats */}
+            <div className="mb-4">
+              <h3 className="text-sm font-medium text-gray-400 px-3 mb-2">PLATFORM STATS</h3>
+              {platformStats && (
+                <div className="px-3 space-y-2 text-sm">
+                  <div className="flex justify-between text-gray-400">
+                    <span>Creators</span>
+                    <span>{platformStats.totalCreators}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Posts</span>
+                    <span>{platformStats.totalPosts}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Users</span>
+                    <span>{platformStats.totalUsers}</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <Separator className="my-6 bg-[#2c2e36]" />
 
@@ -290,7 +532,11 @@ const Dashboard: React.FC = () => {
                 <ul className="space-y-1">
                   {filteredCreators.slice(0, 5).map((creator) => (
                     <li key={creator.id}>
-                      <a href={`/creator/${creator.username}`} className="flex items-center px-3 py-2 rounded-lg text-gray-300 hover:bg-[#1e2029]">
+                      <a 
+                        href="#" 
+                        className="flex items-center px-3 py-2 rounded-lg text-gray-300 hover:bg-[#1e2029]"
+                        onClick={(e) => { e.preventDefault(); navigateTo(`/creator/${creator.username}`); }}
+                      >
                         <div className="h-6 w-6 rounded-full overflow-hidden mr-3">
                           <img 
                             src={creator.avatar_url || '/placeholder.svg'} 
@@ -304,7 +550,11 @@ const Dashboard: React.FC = () => {
                   ))}
                   {filteredCreators.length > 5 && (
                     <li>
-                      <a href="/subscriptions" className="flex items-center px-3 py-2 text-sm text-[#00aff0] hover:underline">
+                      <a 
+                        href="#" 
+                        className="flex items-center px-3 py-2 text-sm text-[#00aff0] hover:underline"
+                        onClick={(e) => { e.preventDefault(); navigateTo('/subscriptions'); }}
+                      >
                         Show more
                       </a>
                     </li>
@@ -412,7 +662,10 @@ const Dashboard: React.FC = () => {
                     <p className="text-gray-400 mb-6 max-w-md mx-auto">
                       Subscribe to creators to see their exclusive content in your feed
                     </p>
-                    <Button className="bg-[#00aff0] hover:bg-[#0095cc] text-white">
+                    <Button 
+                      className="bg-[#00aff0] hover:bg-[#0095cc] text-white"
+                      onClick={() => setActiveTab('trending')}
+                    >
                       Explore Creators
                     </Button>
                   </div>
@@ -441,33 +694,38 @@ const Dashboard: React.FC = () => {
                   <p className="text-gray-400 mb-6 max-w-md mx-auto">
                     Start following creators to see their exclusive content here
                   </p>
-                  <Button className="bg-[#00aff0] hover:bg-[#0095cc] text-white">
+                  <Button 
+                    className="bg-[#00aff0] hover:bg-[#0095cc] text-white"
+                    onClick={() => setActiveTab('trending')}
+                  >
                     Browse Creators
                   </Button>
                 </div>
               </TabsContent>
               
               <TabsContent value="trending" className="mt-0">
-                <div className="bg-[#1e2029] rounded-lg p-8 text-center">
-                  <div className="w-16 h-16 rounded-full bg-[#252836] flex items-center justify-center mx-auto mb-4">
-                    <TrendingUp className="h-8 w-8 text-gray-400" />
+                {filteredCreators.length === 0 ? (
+                  <div className="bg-[#1e2029] rounded-lg p-8 text-center">
+                    <div className="w-16 h-16 rounded-full bg-[#252836] flex items-center justify-center mx-auto mb-4">
+                      <TrendingUp className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">No creators yet</h3>
+                    <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                      Be the first to join as a creator!
+                    </p>
+                    {!profile?.is_creator && (
+                      <Button 
+                        onClick={handleBecomeCreator}
+                        disabled={becomingCreator}
+                        className="bg-[#00aff0] hover:bg-[#0095cc] text-white"
+                      >
+                        {becomingCreator ? 'Creating...' : 'Become a Creator'}
+                      </Button>
+                    )}
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">Trending Content</h3>
-                  <p className="text-gray-400 mb-6 max-w-md mx-auto">
-                    Discover what's popular on KikStars right now
-                  </p>
-                  <Button className="bg-[#00aff0] hover:bg-[#0095cc] text-white">
-                    See Trending
-                  </Button>
-                </div>
-              </TabsContent>
-
-              {/* Suggested creators section */}
-              {filteredPosts.length > 0 && (
-                <div className="mt-8">
-                  <h3 className="text-lg font-bold mb-4">Suggested Creators</h3>
+                ) : (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {filteredCreators.slice(0, 4).map((creator) => (
+                    {filteredCreators.map((creator) => (
                       <Card key={creator.id} className="bg-[#1e2029] border-0 overflow-hidden">
                         {/* Cover image */}
                         <div className="h-24 bg-gradient-to-r from-[#252836] to-[#1e2029]"></div>
@@ -490,21 +748,40 @@ const Dashboard: React.FC = () => {
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-xs text-gray-400 mb-3">@{creator.username}</p>
+                            <p className="text-xs text-gray-400 mb-1">@{creator.username}</p>
+                            <p className="text-xs text-gray-500 mb-3">{creator.total_subscribers} subscribers</p>
                             <Button 
                               className="w-full bg-[#00aff0] hover:bg-[#0095cc] text-white"
                               size="sm"
-                              onClick={() => toast.success(`Subscribed to ${creator.display_name}`)}
+                              onClick={() => handleSubscribe(creator.id, creator.display_name)}
                             >
-                              Subscribe
+                              Subscribe ${(creator.subscription_price / 100).toFixed(2)}/mo
                             </Button>
                           </div>
                         </CardContent>
                       </Card>
                     ))}
                   </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="bookmarks" className="mt-0">
+                <div className="bg-[#1e2029] rounded-lg p-8 text-center">
+                  <div className="w-16 h-16 rounded-full bg-[#252836] flex items-center justify-center mx-auto mb-4">
+                    <Bookmark className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">No bookmarks yet</h3>
+                  <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                    Bookmark posts to save them for later
+                  </p>
+                  <Button 
+                    className="bg-[#00aff0] hover:bg-[#0095cc] text-white"
+                    onClick={() => setActiveTab('for-you')}
+                  >
+                    Explore Content
+                  </Button>
                 </div>
-              )}
+              </TabsContent>
             </Tabs>
           </div>
         </main>
