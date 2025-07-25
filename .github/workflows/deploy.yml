@@ -41,6 +41,7 @@ jobs:
           projectName: kikstars-platform
           directory: dist/public
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          wranglerVersion: '3'
           
       - name: Verify deployment
         run: |
