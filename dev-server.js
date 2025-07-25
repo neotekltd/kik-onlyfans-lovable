@@ -44,7 +44,7 @@ async function startServer() {
     try {
       // Simulate posts data
       const posts = [
-        { id: 1, title: 'Welcome to Fanixora', content: 'This is a sample post' },
+        { id: 1, title: 'Welcome to KikStars', content: 'This is a sample post' },
         { id: 2, title: 'Getting Started', content: 'Learn how to use the platform' }
       ];
       res.json(posts);

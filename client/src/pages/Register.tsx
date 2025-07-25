@@ -83,7 +83,7 @@ const Register = () => {
             Back to Home
           </Button>
           <h1 className="text-3xl font-bold text-gray-900">
-            Join Fanixora
+            Join KikStars
           </h1>
           <p className="text-gray-600 mt-2">Create your account and start your journey</p>
         </div>
