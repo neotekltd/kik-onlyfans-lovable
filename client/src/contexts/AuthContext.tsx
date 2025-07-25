@@ -179,11 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       toast({
         title: "Account created!",
-<<<<<<< HEAD:src/contexts/AuthContext.tsx
         description: "Welcome to KikStars. Please check your email to verify your account.",
-=======
-        description: "Welcome to Fanixora. Please check your email to verify your account.",
->>>>>>> 00fd3d273c793926873f254f5e90647b563b5bd8:client/src/contexts/AuthContext.tsx
       });
     } catch (error: any) {
       toast({

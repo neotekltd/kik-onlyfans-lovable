@@ -379,11 +379,7 @@ const AgeVerification: React.FC = () => {
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-<<<<<<< HEAD:src/components/AgeVerification.tsx
               Note must read: "I authorize KikStars to verify my age and sex in order for me to become a fully verified creator under law. {new Date().toLocaleDateString()}"
-=======
-              Note must read: "I authorize Fanixora to verify my age and sex in order for me to become a fully verified creator under law. {new Date().toLocaleDateString()}"
->>>>>>> 00fd3d273c793926873f254f5e90647b563b5bd8:client/src/components/AgeVerification.tsx
             </p>
           </div>
         </div>

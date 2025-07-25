@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlatformStats, useRealUserActivity } from '@/components/RealDataLoader';
 import ModernPostCard from '@/components/ModernPostCard';
+import ModernHeader from '@/components/ModernHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { 
   Camera, 
   Star, 
@@ -71,6 +73,7 @@ const Dashboard: React.FC = () => {
   const { user, profile, becomeCreator } = useAuth();
   const { stats: platformStats, loading: statsLoading } = usePlatformStats();
   const { activity, loading: activityLoading } = useRealUserActivity();
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [creators, setCreators] = useState<Creator[]>([]);
   const [loading, setLoading] = useState(true);
@@ -363,13 +366,8 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-
   const navigateTo = (path: string) => {
-    // For now, show toast indicating navigation would happen
-    toast.info(`Navigating to ${path}`);
+    navigate(path);
   };
 
   if (loading) {
@@ -387,61 +385,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#13151a] text-white">
-      {/* Header */}
-      <header className="bg-[#0f1015] border-b border-[#2c2e36] sticky top-0 z-50">
-        <div className="max-w-[1600px] mx-auto px-4 py-3 flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-[#00aff0]">KikStars</h1>
-          </div>
-
-          {/* Search */}
-          <div className="hidden md:flex relative w-1/3 max-w-md">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
-            </div>
-            <Input
-              type="text"
-              placeholder="Search creators and content..."
-              className="pl-10 bg-[#1e2029] border-[#2c2e36] text-white w-full rounded-full focus:ring-[#00aff0] focus:border-[#00aff0]"
-              value={searchQuery}
-              onChange={handleSearch}
-            />
-          </div>
-
-          {/* Right side icons */}
-          <div className="flex items-center space-x-5">
-            <button 
-              className="text-gray-300 hover:text-white" 
-              aria-label="Notifications"
-              onClick={() => navigateTo('/notifications')}
-            >
-              <Bell className="h-6 w-6" />
-            </button>
-            <button 
-              className="text-gray-300 hover:text-white" 
-              aria-label="Messages"
-              onClick={() => navigateTo('/messages')}
-            >
-              <MessageCircle className="h-6 w-6" />
-            </button>
-            <button 
-              className="text-gray-300 hover:text-white" 
-              aria-label="Bookmarks"
-              onClick={() => setActiveTab('bookmarks')}
-            >
-              <Bookmark className="h-6 w-6" />
-            </button>
-            <div className="h-8 w-8 rounded-full overflow-hidden">
-              <img 
-                src={profile?.avatar_url || '/placeholder.svg'} 
-                alt={profile?.display_name || 'User'}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </div>
-        </div>
-      </header>
+      <ModernHeader searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
 
       <div className="flex">
         {/* Sidebar */}
