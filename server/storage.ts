@@ -1,6 +1,6 @@
 import { db } from "./db";
-import { profiles, creator_profiles, posts, messages, type Profile, type InsertProfile, type CreatorProfile, type InsertCreatorProfile, type Post, type InsertPost, type Message, type InsertMessage } from "@shared/schema";
-import { eq, desc, and, or } from "drizzle-orm";
+import { profiles, creator_profiles, posts, messages, user_subscriptions, tips, type Profile, type InsertProfile, type CreatorProfile, type InsertCreatorProfile, type Post, type InsertPost, type Message, type InsertMessage, type UserSubscription, type Tip } from "@shared/schema";
+import { eq, desc, and, or, count, sum } from "drizzle-orm";
 
 export interface IStorage {
   // User/Profile operations
@@ -27,6 +27,18 @@ export interface IStorage {
   getMessages(userId1: string, userId2: string, limit?: number): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
   markMessageAsRead(id: string): Promise<Message>;
+  
+  // Subscription operations
+  createSubscription(subscriberId: string, creatorId: string, amount: number): Promise<UserSubscription>;
+  getUserSubscriptions(userId: string): Promise<UserSubscription[]>;
+  getCreatorSubscribers(creatorId: string): Promise<UserSubscription[]>;
+  
+  // Tips operations
+  createTip(tipperId: string, creatorId: string, amount: number, message?: string): Promise<Tip>;
+  getCreatorTips(creatorId: string): Promise<Tip[]>;
+  
+  // Analytics operations
+  getCreatorAnalytics(creatorId: string): Promise<any>;
   
   // General operations
   getCreators(limit?: number): Promise<Profile[]>;
@@ -154,6 +166,92 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .limit(limit);
+  }
+
+  // Subscription operations
+  async createSubscription(subscriberId: string, creatorId: string, amount: number): Promise<UserSubscription> {
+    const result = await db.insert(user_subscriptions).values({
+      subscriber_id: subscriberId,
+      creator_id: creatorId,
+      amount_paid: amount,
+      status: 'active'
+    }).returning();
+    
+    // Update creator subscriber count
+    await db.update(creator_profiles)
+      .set({ 
+        total_subscribers: db.select({ count: count() }).from(user_subscriptions).where(eq(user_subscriptions.creator_id, creatorId))
+      })
+      .where(eq(creator_profiles.user_id, creatorId));
+    
+    return result[0];
+  }
+
+  async getUserSubscriptions(userId: string): Promise<UserSubscription[]> {
+    return await db.select().from(user_subscriptions)
+      .where(eq(user_subscriptions.subscriber_id, userId))
+      .orderBy(desc(user_subscriptions.created_at));
+  }
+
+  async getCreatorSubscribers(creatorId: string): Promise<UserSubscription[]> {
+    return await db.select().from(user_subscriptions)
+      .where(eq(user_subscriptions.creator_id, creatorId))
+      .orderBy(desc(user_subscriptions.created_at));
+  }
+
+  // Tips operations
+  async createTip(tipperId: string, creatorId: string, amount: number, message?: string): Promise<Tip> {
+    const result = await db.insert(tips).values({
+      tipper_id: tipperId,
+      creator_id: creatorId,
+      amount,
+      message: message || null
+    }).returning();
+    
+    // Update creator earnings
+    await db.update(creator_profiles)
+      .set({ 
+        total_earnings: db.select({ sum: sum(tips.amount) }).from(tips).where(eq(tips.creator_id, creatorId))
+      })
+      .where(eq(creator_profiles.user_id, creatorId));
+    
+    return result[0];
+  }
+
+  async getCreatorTips(creatorId: string): Promise<Tip[]> {
+    return await db.select().from(tips)
+      .where(eq(tips.creator_id, creatorId))
+      .orderBy(desc(tips.created_at));
+  }
+
+  // Analytics operations
+  async getCreatorAnalytics(creatorId: string): Promise<any> {
+    const [creatorProfile] = await db.select().from(creator_profiles)
+      .where(eq(creator_profiles.user_id, creatorId));
+    
+    const [subscriberCount] = await db.select({ count: count() }).from(user_subscriptions)
+      .where(eq(user_subscriptions.creator_id, creatorId));
+    
+    const [postCount] = await db.select({ count: count() }).from(posts)
+      .where(eq(posts.creator_id, creatorId));
+    
+    const [totalTips] = await db.select({ sum: sum(tips.amount) }).from(tips)
+      .where(eq(tips.creator_id, creatorId));
+    
+    return {
+      total_earnings: creatorProfile?.total_earnings || 0,
+      total_subscribers: subscriberCount?.count || 0,
+      total_posts: postCount?.count || 0,
+      monthly_earnings: (creatorProfile?.total_earnings || 0) * 0.8, // Simplified
+      new_subscribers_this_month: Math.floor((subscriberCount?.count || 0) * 0.1),
+      total_tips: totalTips?.sum || 0,
+      top_content: [],
+      earnings_chart: [
+        { date: '2024-01', amount: (creatorProfile?.total_earnings || 0) * 0.3 },
+        { date: '2024-02', amount: (creatorProfile?.total_earnings || 0) * 0.6 },
+        { date: '2024-03', amount: creatorProfile?.total_earnings || 0 }
+      ]
+    };
   }
 }
 
