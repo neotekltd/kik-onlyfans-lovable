@@ -1,9 +1,9 @@
 import { pgTable, text, serial, integer, boolean, timestamp, uuid, jsonb, pgEnum } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
-export const messageTypeEnum = pgEnum("message_type", ["text", "image", "video", "audio"]);
+export const messageTypeEnum = pgEnum("message_type", ["text", "image", "video", "file"]);
 export const payoutStatusEnum = pgEnum("payout_status", ["pending", "processing", "completed", "failed"]);
 export const subscriptionStatusEnum = pgEnum("subscription_status", ["active", "cancelled", "expired"]);
 
@@ -259,6 +259,22 @@ export const age_verification_documents = pgTable("age_verification_documents", 
   updated_at: timestamp("updated_at").defaultNow(),
 });
 
+// Welcome messages
+export const welcome_messages = pgTable("welcome_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  creator_id: uuid("creator_id").references(() => profiles.id).notNull(),
+  content: text("content"),
+  media_url: text("media_url"),
+  message_type: messageTypeEnum("message_type").default("text"),
+  is_ppv: boolean("is_ppv").default(false),
+  ppv_price: integer("ppv_price"),
+  delay_hours: integer("delay_hours").default(0),
+  is_active: boolean("is_active").default(true),
+  sequence_order: integer("sequence_order").default(0),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
+
 // Schema validation
 export const insertProfileSchema = createInsertSchema(profiles).pick({
   username: true,
@@ -302,6 +318,18 @@ export const insertCreatorProfileSchema = createInsertSchema(creator_profiles).p
   payout_email: true,
 });
 
+// Welcome message schema
+export const insertWelcomeMessageSchema = createInsertSchema(welcome_messages, {
+  content: z.string().optional().nullable(),
+  media_url: z.string().optional().nullable(),
+  message_type: z.enum(["text", "image", "video", "file"]).default("text"),
+  is_ppv: z.boolean().default(false),
+  ppv_price: z.number().optional().nullable(),
+  delay_hours: z.number().default(0),
+  is_active: z.boolean().default(true),
+  sequence_order: z.number().default(0),
+});
+
 // Types
 export type InsertProfile = z.infer<typeof insertProfileSchema>;
 export type Profile = typeof profiles.$inferSelect;
@@ -318,3 +346,5 @@ export type Notification = typeof notifications.$inferSelect;
 export type AgeVerificationDocument = typeof age_verification_documents.$inferSelect;
 export type LiveStream = typeof live_streams.$inferSelect;
 export type ContentCollection = typeof content_collections.$inferSelect;
+export type InsertWelcomeMessage = z.infer<typeof insertWelcomeMessageSchema>;
+export type WelcomeMessage = typeof welcome_messages.$inferSelect;

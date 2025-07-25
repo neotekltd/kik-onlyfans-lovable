@@ -38,7 +38,7 @@ Previously Fanilux
   - Implement media attachment support for mass messages
   - Add analytics for mass message performance
 
-- [ ] **Welcome Messages**
+- [x] **Welcome Messages**
   - Build automated welcome message system triggered on subscription
   - Allow creators to customize welcome messages with media
   - Implement scheduling options for welcome message sequences

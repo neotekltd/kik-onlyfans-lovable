@@ -4,36 +4,21 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCreatorStats } from '@/hooks/useCreatorStats';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, Users, TrendingUp, Plus } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, Plus, MessageSquare } from 'lucide-react';
 import MainLayout from '@/layouts/MainLayout';
 import PostForm from '@/components/PostForm';
 import CreatorFeeExpiredAlert from '@/components/CreatorFeeExpiredAlert';
 import StripeConnectSetup from '@/components/StripeConnectSetup';
 import VerificationStatus from '@/components/VerificationStatus';
 import MassMessageForm from '@/components/MassMessageForm';
+import WelcomeMessageSetup from '@/components/WelcomeMessageSetup';
 
 const Creator: React.FC = () => {
   const { profile, creatorProfile } = useAuth();
   const { stats, loading: statsLoading } = useCreatorStats();
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  const handlePostCreated = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
-
-  if (!profile?.is_creator) {
-    return (
-      <MainLayout>
-        <div className="p-8 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
-          <p className="text-gray-600 mt-2">This page is only available for creators.</p>
-        </div>
-      </MainLayout>
-    );
-  }
-
-  const isPlatformFeeActive = creatorProfile?.is_platform_fee_active;
-  const isStripeConnected = creatorProfile?.stripe_account_id && creatorProfile?.stripe_onboarding_complete;
+  const [activeTab, setActiveTab] = useState('posts');
+  
+  const isPlatformFeeActive = creatorProfile?.is_platform_fee_active || false;
   const isVerified = profile?.is_verified || profile?.verification_status === 'verified';
 
   return (
@@ -109,114 +94,51 @@ const Creator: React.FC = () => {
           </div>
         )}
 
-        {/* Stripe Connect Setup */}
-        <div className="mb-8">
-          <StripeConnectSetup />
-        </div>
-
         {/* Creator Tools */}
-        <Tabs defaultValue="create" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="create">Create Content</TabsTrigger>
-            <TabsTrigger value="manage">Manage Posts</TabsTrigger>
-            <TabsTrigger value="subscribers">Subscribers</TabsTrigger>
-            <TabsTrigger value="payments">Payments</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="create" className="space-y-6">
-            {isPlatformFeeActive ? (
-              <PostForm onPostCreated={handlePostCreated} />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Creator Features Restricted</CardTitle>
-                  <CardDescription>
-                    Your creator features are restricted because your platform fee has not been paid.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">
-                    Please pay the $3 monthly platform fee to continue creating content.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="manage" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Your Posts</CardTitle>
-                <CardDescription>Manage your published content</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <p className="text-gray-500">Post management coming soon...</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="subscribers" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Subscriber Management</CardTitle>
-                <CardDescription>View and manage your subscribers</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <p className="text-gray-500">Subscriber management coming soon...</p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="payments" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Settings</CardTitle>
-                <CardDescription>Manage your payment methods and earnings</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isStripeConnected ? (
-                  <div className="space-y-4">
-                    <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
-                      <p className="font-medium text-green-700">Stripe account connected</p>
-                      <p className="text-sm text-green-600 mt-1">
-                        You're ready to receive payments directly to your bank account.
+        {isPlatformFeeActive && (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
+            <TabsList className="mb-8">
+              <TabsTrigger value="posts">Create Post</TabsTrigger>
+              <TabsTrigger value="welcome">Welcome Messages</TabsTrigger>
+              <TabsTrigger value="payments">Payments</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="posts">
+              <PostForm />
+            </TabsContent>
+            
+            <TabsContent value="welcome">
+              <WelcomeMessageSetup />
+            </TabsContent>
+            
+            <TabsContent value="payments">
+              <div className="grid grid-cols-1 gap-6">
+                {!isVerified ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5" />
+                        Verification Required
+                      </CardTitle>
+                      <CardDescription>
+                        You must complete the verification process before connecting your payment account
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground mb-4">
+                        To ensure compliance with payment regulations and protect both creators and users,
+                        we require all creators to complete the verification process before they can receive payments.
                       </p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="border p-4 rounded-lg">
-                        <h3 className="font-medium mb-2">Subscription Price</h3>
-                        <p className="text-2xl font-bold">
-                          ${(creatorProfile?.subscription_price || 0) / 100}/month
-                        </p>
-                      </div>
-                      <div className="border p-4 rounded-lg">
-                        <h3 className="font-medium mb-2">Platform Fee</h3>
-                        <p className="text-2xl font-bold">$3.00/month</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Next payment: {creatorProfile?.platform_fee_paid_until ? 
-                            new Date(creatorProfile.platform_fee_paid_until).toLocaleDateString() : 
-                            'Not set'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                      <VerificationStatus />
+                    </CardContent>
+                  </Card>
                 ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">
-                      {isVerified ? 
-                        'Connect your Stripe account to manage payments and view earnings.' : 
-                        'Complete verification to connect your Stripe account and manage payments.'}
-                    </p>
-                  </div>
+                  <StripeConnectSetup />
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </div>
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </MainLayout>
   );
