@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlatformStats } from '@/components/RealDataLoader';
+import ModernPostCard from '@/components/ModernPostCard';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   Camera, 
@@ -26,7 +28,8 @@ import {
   Calendar,
   Clock,
   Grid,
-  List
+  List,
+  Shield
 } from 'lucide-react';
 
 interface Creator {
@@ -70,7 +73,7 @@ const Dashboard: React.FC = () => {
   const [creators, setCreators] = useState<Creator[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState('for-you');
   const [becomingCreator, setBecomingCreator] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -110,6 +113,14 @@ const Dashboard: React.FC = () => {
     post.profiles?.username?.toLowerCase().includes(searchQuery.toLowerCase())
   ) : [];
 
+  // Filter creators based on search query
+  const filteredCreators = Array.isArray(creators) ? creators.filter(creator =>
+    !searchQuery ||
+    creator.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    creator.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    creator.bio?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) : [];
+
   const handleBecomeCreator = async () => {
     setBecomingCreator(true);
     try {
@@ -134,11 +145,24 @@ const Dashboard: React.FC = () => {
       
       if (response.ok) {
         toast.success(`${action} successful`);
+        
+        // Update local state based on action
+        if (action === 'like') {
+          setPosts(prevPosts => 
+            prevPosts.map(post => 
+              post.id === postId ? { ...post, like_count: post.like_count + 1 } : post
+            )
+          );
+        }
       }
     } catch (error) {
       console.error(`Error ${action}:`, error);
       toast.error(`Failed to ${action}`);
     }
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
   };
 
   if (loading) {
@@ -174,19 +198,19 @@ const Dashboard: React.FC = () => {
               placeholder="Search..."
               className="pl-10 bg-[#1e2029] border-[#2c2e36] text-white w-full rounded-full focus:ring-[#00aff0] focus:border-[#00aff0]"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearch}
             />
           </div>
 
           {/* Right side icons */}
           <div className="flex items-center space-x-5">
-            <button className="text-gray-300 hover:text-white">
+            <button className="text-gray-300 hover:text-white" aria-label="Notifications">
               <Bell className="h-6 w-6" />
             </button>
-            <button className="text-gray-300 hover:text-white">
+            <button className="text-gray-300 hover:text-white" aria-label="Messages">
               <MessageCircle className="h-6 w-6" />
             </button>
-            <button className="text-gray-300 hover:text-white">
+            <button className="text-gray-300 hover:text-white" aria-label="Bookmarks">
               <Bookmark className="h-6 w-6" />
             </button>
             <div className="h-8 w-8 rounded-full overflow-hidden">
@@ -208,31 +232,31 @@ const Dashboard: React.FC = () => {
               <li>
                 <a 
                   href="#" 
-                  className={`flex items-center px-3 py-2.5 rounded-lg ${activeTab === 'home' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-300 hover:bg-[#1e2029]'}`}
-                  onClick={() => setActiveTab('home')}
+                  className={`flex items-center px-3 py-2.5 rounded-lg ${activeTab === 'for-you' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-300 hover:bg-[#1e2029]'}`}
+                  onClick={() => setActiveTab('for-you')}
                 >
                   <Home className="h-5 w-5 mr-3" />
-                  <span>Home</span>
+                  <span>For You</span>
                 </a>
               </li>
               <li>
                 <a 
                   href="#" 
-                  className={`flex items-center px-3 py-2.5 rounded-lg ${activeTab === 'notifications' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-300 hover:bg-[#1e2029]'}`}
-                  onClick={() => setActiveTab('notifications')}
+                  className={`flex items-center px-3 py-2.5 rounded-lg ${activeTab === 'following' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-300 hover:bg-[#1e2029]'}`}
+                  onClick={() => setActiveTab('following')}
                 >
-                  <Bell className="h-5 w-5 mr-3" />
-                  <span>Notifications</span>
+                  <Users className="h-5 w-5 mr-3" />
+                  <span>Following</span>
                 </a>
               </li>
               <li>
                 <a 
                   href="#" 
-                  className={`flex items-center px-3 py-2.5 rounded-lg ${activeTab === 'messages' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-300 hover:bg-[#1e2029]'}`}
-                  onClick={() => setActiveTab('messages')}
+                  className={`flex items-center px-3 py-2.5 rounded-lg ${activeTab === 'trending' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-300 hover:bg-[#1e2029]'}`}
+                  onClick={() => setActiveTab('trending')}
                 >
-                  <MessageCircle className="h-5 w-5 mr-3" />
-                  <span>Messages</span>
+                  <TrendingUp className="h-5 w-5 mr-3" />
+                  <span>Trending</span>
                 </a>
               </li>
               <li>
@@ -243,16 +267,6 @@ const Dashboard: React.FC = () => {
                 >
                   <Bookmark className="h-5 w-5 mr-3" />
                   <span>Bookmarks</span>
-                </a>
-              </li>
-              <li>
-                <a 
-                  href="#" 
-                  className={`flex items-center px-3 py-2.5 rounded-lg ${activeTab === 'lists' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-300 hover:bg-[#1e2029]'}`}
-                  onClick={() => setActiveTab('lists')}
-                >
-                  <List className="h-5 w-5 mr-3" />
-                  <span>Lists</span>
                 </a>
               </li>
               <li>
@@ -272,11 +286,11 @@ const Dashboard: React.FC = () => {
             {/* Subscriptions section */}
             <div className="mb-4">
               <h3 className="text-sm font-medium text-gray-400 px-3 mb-2">SUBSCRIPTIONS</h3>
-              {creators.length > 0 ? (
+              {filteredCreators.length > 0 ? (
                 <ul className="space-y-1">
-                  {creators.slice(0, 5).map((creator) => (
+                  {filteredCreators.slice(0, 5).map((creator) => (
                     <li key={creator.id}>
-                      <a href="#" className="flex items-center px-3 py-2 rounded-lg text-gray-300 hover:bg-[#1e2029]">
+                      <a href={`/creator/${creator.username}`} className="flex items-center px-3 py-2 rounded-lg text-gray-300 hover:bg-[#1e2029]">
                         <div className="h-6 w-6 rounded-full overflow-hidden mr-3">
                           <img 
                             src={creator.avatar_url || '/placeholder.svg'} 
@@ -288,9 +302,9 @@ const Dashboard: React.FC = () => {
                       </a>
                     </li>
                   ))}
-                  {creators.length > 5 && (
+                  {filteredCreators.length > 5 && (
                     <li>
-                      <a href="#" className="flex items-center px-3 py-2 text-sm text-[#00aff0] hover:underline">
+                      <a href="/subscriptions" className="flex items-center px-3 py-2 text-sm text-[#00aff0] hover:underline">
                         Show more
                       </a>
                     </li>
@@ -319,216 +333,179 @@ const Dashboard: React.FC = () => {
         {/* Main content */}
         <main className="flex-1 min-h-[calc(100vh-64px)]">
           <div className="max-w-[1100px] mx-auto px-4 py-6">
-            {/* Home feed */}
-            <div className="mb-6 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Home Feed</h2>
-              <div className="flex items-center space-x-2">
-                <button 
-                  onClick={() => setViewMode('grid')} 
-                  className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-400 hover:bg-[#1e2029]'}`}
-                >
-                  <Grid className="h-5 w-5" />
-                </button>
-                <button 
-                  onClick={() => setViewMode('list')} 
-                  className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-400 hover:bg-[#1e2029]'}`}
-                >
-                  <List className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Stories row */}
-            <div className="mb-6 overflow-x-auto pb-2">
-              <div className="flex gap-4 min-w-max">
-                {/* New story button */}
-                <div className="flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-full bg-[#1e2029] flex items-center justify-center">
-                    <Plus className="h-6 w-6 text-[#00aff0]" />
-                  </div>
-                  <span className="text-xs mt-1 text-gray-300">New</span>
-                </div>
+            {/* Tabs for content */}
+            <Tabs 
+              defaultValue="for-you" 
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="w-full"
+            >
+              <div className="mb-6 flex justify-between items-center">
+                <TabsList className="bg-[#1e2029]">
+                  <TabsTrigger value="for-you" className="data-[state=active]:bg-[#00aff0] data-[state=active]:text-white">
+                    For You
+                  </TabsTrigger>
+                  <TabsTrigger value="following" className="data-[state=active]:bg-[#00aff0] data-[state=active]:text-white">
+                    Following
+                  </TabsTrigger>
+                  <TabsTrigger value="trending" className="data-[state=active]:bg-[#00aff0] data-[state=active]:text-white">
+                    Trending
+                  </TabsTrigger>
+                </TabsList>
                 
-                {/* Creator stories */}
-                {Array.isArray(creators) && creators.slice(0, 10).map((creator) => (
-                  <div key={creator.id} className="flex flex-col items-center">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#00aff0] to-[#9146ff] p-[2px]">
-                      <div className="w-full h-full rounded-full overflow-hidden bg-[#13151a]">
-                        <img 
-                          src={creator.avatar_url || '/placeholder.svg'} 
-                          alt={creator.display_name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </div>
-                    <span className="text-xs mt-1 text-gray-300 truncate max-w-[64px]">
-                      {creator.username}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Content feed */}
-            {filteredPosts.length === 0 ? (
-              <div className="bg-[#1e2029] rounded-lg p-8 text-center">
-                <div className="w-16 h-16 rounded-full bg-[#252836] flex items-center justify-center mx-auto mb-4">
-                  <Camera className="h-8 w-8 text-gray-400" />
+                <div className="flex items-center space-x-2">
+                  <button 
+                    onClick={() => setViewMode('grid')} 
+                    className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-400 hover:bg-[#1e2029]'}`}
+                    aria-label="Grid view"
+                  >
+                    <Grid className="h-5 w-5" />
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('list')} 
+                    className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-[#1e2029] text-[#00aff0]' : 'text-gray-400 hover:bg-[#1e2029]'}`}
+                    aria-label="List view"
+                  >
+                    <List className="h-5 w-5" />
+                  </button>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">No posts yet</h3>
-                <p className="text-gray-400 mb-6 max-w-md mx-auto">
-                  Subscribe to creators to see their exclusive content in your feed
-                </p>
-                <Button className="bg-[#00aff0] hover:bg-[#0095cc] text-white">
-                  Explore Creators
-                </Button>
               </div>
-            ) : (
-              <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-6'}>
-                {filteredPosts.map((post) => (
-                  <Card key={post.id} className="bg-[#1e2029] border-0 overflow-hidden">
-                    {/* Post header */}
-                    <div className="p-4 flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 rounded-full overflow-hidden mr-3">
+
+              {/* Stories row */}
+              <div className="mb-6 overflow-x-auto pb-2">
+                <div className="flex gap-4 min-w-max">
+                  {/* New story button */}
+                  <div className="flex flex-col items-center">
+                    <div className="w-16 h-16 rounded-full bg-[#1e2029] flex items-center justify-center">
+                      <Plus className="h-6 w-6 text-[#00aff0]" />
+                    </div>
+                    <span className="text-xs mt-1 text-gray-300">New</span>
+                  </div>
+                  
+                  {/* Creator stories */}
+                  {Array.isArray(creators) && creators.slice(0, 10).map((creator) => (
+                    <div key={creator.id} className="flex flex-col items-center">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-r from-[#00aff0] to-[#9146ff] p-[2px]">
+                        <div className="w-full h-full rounded-full overflow-hidden bg-[#13151a]">
                           <img 
-                            src={post.profiles?.avatar_url || '/placeholder.svg'} 
-                            alt={post.profiles?.display_name}
+                            src={creator.avatar_url || '/placeholder.svg'} 
+                            alt={creator.display_name}
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <div>
-                          <div className="flex items-center">
-                            <p className="font-medium">{post.profiles?.display_name}</p>
-                            {post.profiles?.is_verified && (
-                              <Badge className="ml-1 bg-[#00aff0] text-white text-xs px-1">
-                                <Star className="h-3 w-3" />
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-gray-400">@{post.profiles?.username}</p>
-                        </div>
                       </div>
-                      <div className="flex items-center text-xs text-gray-400">
-                        <Clock className="h-3 w-3 mr-1" />
-                        <span>
-                          {new Date(post.created_at).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </span>
-                      </div>
+                      <span className="text-xs mt-1 text-gray-300 truncate max-w-[64px]">
+                        {creator.username}
+                      </span>
                     </div>
-
-                    {/* Post content */}
-                    <div className="relative">
-                      {post.thumbnail_url ? (
-                        <img 
-                          src={post.thumbnail_url} 
-                          alt={post.title || 'Post content'} 
-                          className="w-full aspect-square md:aspect-video object-cover"
-                        />
-                      ) : (
-                        <div className="w-full aspect-square md:aspect-video bg-[#252836] flex items-center justify-center">
-                          <Camera className="h-12 w-12 text-gray-500" />
-                        </div>
-                      )}
-                      
-                      {/* PPV overlay */}
-                      {post.is_ppv && (
-                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center">
-                          <Lock className="h-8 w-8 text-white mb-2" />
-                          <p className="text-white font-medium mb-1">Unlock this post</p>
-                          <p className="text-[#00aff0] font-bold text-xl mb-3">${post.ppv_price?.toFixed(2)}</p>
-                          <Button 
-                            className="bg-[#00aff0] hover:bg-[#0095cc] text-white"
-                            onClick={() => handlePostAction(post.id, 'purchase')}
-                          >
-                            Unlock Now
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Post description */}
-                    {!post.is_ppv && post.description && (
-                      <div className="p-4">
-                        <p className="text-sm">{post.description}</p>
-                      </div>
-                    )}
-
-                    {/* Post actions */}
-                    <div className="px-4 py-3 border-t border-[#2c2e36] flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <button 
-                          className="flex items-center text-gray-400 hover:text-[#00aff0]"
-                          onClick={() => handlePostAction(post.id, 'like')}
-                        >
-                          <Heart className="h-5 w-5 mr-1" />
-                          <span className="text-sm">{post.like_count}</span>
-                        </button>
-                        <button 
-                          className="flex items-center text-gray-400 hover:text-[#00aff0]"
-                          onClick={() => handlePostAction(post.id, 'comment')}
-                        >
-                          <MessageCircle className="h-5 w-5 mr-1" />
-                          <span className="text-sm">{post.comment_count}</span>
-                        </button>
-                      </div>
-                      <button 
-                        className="text-gray-400 hover:text-[#00aff0]"
-                        onClick={() => handlePostAction(post.id, 'bookmark')}
-                      >
-                        <Bookmark className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {/* Suggested creators section */}
-            {filteredPosts.length > 0 && (
-              <div className="mt-8">
-                <h3 className="text-lg font-bold mb-4">Suggested Creators</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {creators.slice(0, 4).map((creator) => (
-                    <Card key={creator.id} className="bg-[#1e2029] border-0 overflow-hidden">
-                      {/* Cover image */}
-                      <div className="h-24 bg-gradient-to-r from-[#252836] to-[#1e2029]"></div>
-                      
-                      {/* Profile info */}
-                      <CardContent className="pt-0">
-                        <div className="flex flex-col items-center -mt-8 text-center">
-                          <div className="h-16 w-16 rounded-full border-4 border-[#1e2029] overflow-hidden mb-2">
-                            <img 
-                              src={creator.avatar_url || '/placeholder.svg'} 
-                              alt={creator.display_name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <div className="flex items-center mb-1">
-                            <p className="font-medium">{creator.display_name}</p>
-                            {creator.is_verified && (
-                              <Badge className="ml-1 bg-[#00aff0] text-white text-xs px-1">
-                                <Star className="h-3 w-3" />
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-gray-400 mb-3">@{creator.username}</p>
-                          <Button 
-                            className="w-full bg-[#00aff0] hover:bg-[#0095cc] text-white"
-                            size="sm"
-                          >
-                            Subscribe
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
                   ))}
                 </div>
               </div>
-            )}
+
+              <TabsContent value="for-you" className="mt-0">
+                {filteredPosts.length === 0 ? (
+                  <div className="bg-[#1e2029] rounded-lg p-8 text-center">
+                    <div className="w-16 h-16 rounded-full bg-[#252836] flex items-center justify-center mx-auto mb-4">
+                      <Camera className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">No posts yet</h3>
+                    <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                      Subscribe to creators to see their exclusive content in your feed
+                    </p>
+                    <Button className="bg-[#00aff0] hover:bg-[#0095cc] text-white">
+                      Explore Creators
+                    </Button>
+                  </div>
+                ) : (
+                  <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-6' : 'space-y-6'}>
+                    {filteredPosts.map((post) => (
+                      <ModernPostCard
+                        key={post.id}
+                        post={post}
+                        onLike={(postId) => handlePostAction(postId, 'like')}
+                        onShare={(postId) => handlePostAction(postId, 'share')}
+                        onBookmark={(postId) => handlePostAction(postId, 'bookmark')}
+                        onPurchase={(postId) => handlePostAction(postId, 'purchase')}
+                      />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="following" className="mt-0">
+                <div className="bg-[#1e2029] rounded-lg p-8 text-center">
+                  <div className="w-16 h-16 rounded-full bg-[#252836] flex items-center justify-center mx-auto mb-4">
+                    <Users className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">No following yet</h3>
+                  <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                    Start following creators to see their exclusive content here
+                  </p>
+                  <Button className="bg-[#00aff0] hover:bg-[#0095cc] text-white">
+                    Browse Creators
+                  </Button>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="trending" className="mt-0">
+                <div className="bg-[#1e2029] rounded-lg p-8 text-center">
+                  <div className="w-16 h-16 rounded-full bg-[#252836] flex items-center justify-center mx-auto mb-4">
+                    <TrendingUp className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">Trending Content</h3>
+                  <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                    Discover what's popular on KikStars right now
+                  </p>
+                  <Button className="bg-[#00aff0] hover:bg-[#0095cc] text-white">
+                    See Trending
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* Suggested creators section */}
+              {filteredPosts.length > 0 && (
+                <div className="mt-8">
+                  <h3 className="text-lg font-bold mb-4">Suggested Creators</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {filteredCreators.slice(0, 4).map((creator) => (
+                      <Card key={creator.id} className="bg-[#1e2029] border-0 overflow-hidden">
+                        {/* Cover image */}
+                        <div className="h-24 bg-gradient-to-r from-[#252836] to-[#1e2029]"></div>
+                        
+                        {/* Profile info */}
+                        <CardContent className="pt-0">
+                          <div className="flex flex-col items-center -mt-8 text-center">
+                            <div className="h-16 w-16 rounded-full border-4 border-[#1e2029] overflow-hidden mb-2">
+                              <img 
+                                src={creator.avatar_url || '/placeholder.svg'} 
+                                alt={creator.display_name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex items-center mb-1">
+                              <p className="font-medium">{creator.display_name}</p>
+                              {creator.is_verified && (
+                                <Badge className="ml-1 bg-[#00aff0] text-white text-xs px-1">
+                                  <Star className="h-3 w-3" />
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400 mb-3">@{creator.username}</p>
+                            <Button 
+                              className="w-full bg-[#00aff0] hover:bg-[#0095cc] text-white"
+                              size="sm"
+                              onClick={() => toast.success(`Subscribed to ${creator.display_name}`)}
+                            >
+                              Subscribe
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Tabs>
           </div>
         </main>
       </div>
@@ -536,17 +513,29 @@ const Dashboard: React.FC = () => {
       {/* Mobile bottom navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-[#0f1015] border-t border-[#2c2e36] z-40">
         <div className="flex justify-around items-center py-2">
-          <button className={`p-2 ${activeTab === 'home' ? 'text-[#00aff0]' : 'text-gray-400'}`}>
+          <button 
+            className={`p-2 ${activeTab === 'for-you' ? 'text-[#00aff0]' : 'text-gray-400'}`}
+            onClick={() => setActiveTab('for-you')}
+          >
             <Home className="h-6 w-6" />
           </button>
-          <button className={`p-2 ${activeTab === 'search' ? 'text-[#00aff0]' : 'text-gray-400'}`}>
+          <button 
+            className={`p-2 ${activeTab === 'search' ? 'text-[#00aff0]' : 'text-gray-400'}`}
+            onClick={() => document.querySelector('input[type="text"]')?.focus()}
+          >
             <Search className="h-6 w-6" />
           </button>
-          <button className={`p-2 ${activeTab === 'notifications' ? 'text-[#00aff0]' : 'text-gray-400'}`}>
-            <Bell className="h-6 w-6" />
+          <button 
+            className={`p-2 ${activeTab === 'trending' ? 'text-[#00aff0]' : 'text-gray-400'}`}
+            onClick={() => setActiveTab('trending')}
+          >
+            <TrendingUp className="h-6 w-6" />
           </button>
-          <button className={`p-2 ${activeTab === 'messages' ? 'text-[#00aff0]' : 'text-gray-400'}`}>
-            <MessageCircle className="h-6 w-6" />
+          <button 
+            className={`p-2 ${activeTab === 'following' ? 'text-[#00aff0]' : 'text-gray-400'}`}
+            onClick={() => setActiveTab('following')}
+          >
+            <Users className="h-6 w-6" />
           </button>
           <button className="p-2 text-gray-400">
             <div className="h-6 w-6 rounded-full overflow-hidden">
