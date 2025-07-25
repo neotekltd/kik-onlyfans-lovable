@@ -41,6 +41,9 @@ export const creator_profiles = pgTable("creator_profiles", {
   bank_account_info: jsonb("bank_account_info"),
   platform_fee_paid_until: timestamp("platform_fee_paid_until"),
   is_platform_fee_active: boolean("is_platform_fee_active").default(false),
+  stripe_account_id: text("stripe_account_id"),
+  stripe_account_status: text("stripe_account_status").default("pending"),
+  stripe_onboarding_complete: boolean("stripe_onboarding_complete").default(false),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

@@ -8,6 +8,7 @@ import { DollarSign, Users, TrendingUp, Plus } from 'lucide-react';
 import MainLayout from '@/layouts/MainLayout';
 import PostForm from '@/components/PostForm';
 import CreatorFeeExpiredAlert from '@/components/CreatorFeeExpiredAlert';
+import StripeConnectSetup from '@/components/StripeConnectSetup';
 
 const Creator: React.FC = () => {
   const { profile, creatorProfile } = useAuth();
@@ -30,6 +31,7 @@ const Creator: React.FC = () => {
   }
 
   const isPlatformFeeActive = creatorProfile?.is_platform_fee_active;
+  const isStripeConnected = creatorProfile?.stripe_account_id && creatorProfile?.stripe_onboarding_complete;
 
   return (
     <MainLayout>
@@ -90,12 +92,18 @@ const Creator: React.FC = () => {
           </div>
         )}
 
+        {/* Stripe Connect Setup */}
+        <div className="mb-8">
+          <StripeConnectSetup />
+        </div>
+
         {/* Creator Tools */}
         <Tabs defaultValue="create" className="space-y-6">
           <TabsList>
             <TabsTrigger value="create">Create Content</TabsTrigger>
             <TabsTrigger value="manage">Manage Posts</TabsTrigger>
             <TabsTrigger value="subscribers">Subscribers</TabsTrigger>
+            <TabsTrigger value="payments">Payments</TabsTrigger>
           </TabsList>
 
           <TabsContent value="create" className="space-y-6">
@@ -142,6 +150,50 @@ const Creator: React.FC = () => {
                 <div className="text-center py-8">
                   <p className="text-gray-500">Subscriber management coming soon...</p>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="payments" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Settings</CardTitle>
+                <CardDescription>Manage your payment methods and earnings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isStripeConnected ? (
+                  <div className="space-y-4">
+                    <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+                      <p className="font-medium text-green-700">Stripe account connected</p>
+                      <p className="text-sm text-green-600 mt-1">
+                        You're ready to receive payments directly to your bank account.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="border p-4 rounded-lg">
+                        <h3 className="font-medium mb-2">Subscription Price</h3>
+                        <p className="text-2xl font-bold">
+                          ${(creatorProfile?.subscription_price || 0) / 100}/month
+                        </p>
+                      </div>
+                      <div className="border p-4 rounded-lg">
+                        <h3 className="font-medium mb-2">Platform Fee</h3>
+                        <p className="text-2xl font-bold">$3.00/month</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Next payment: {creatorProfile?.platform_fee_paid_until ? 
+                            new Date(creatorProfile.platform_fee_paid_until).toLocaleDateString() : 
+                            'Not set'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">
+                      Connect your Stripe account to manage payments and view earnings.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

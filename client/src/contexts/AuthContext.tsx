@@ -35,6 +35,9 @@ interface CreatorProfile {
   bank_account_info?: any;
   platform_fee_paid_until?: string;
   is_platform_fee_active?: boolean;
+  stripe_account_id?: string;
+  stripe_account_status?: 'pending' | 'verified' | 'restricted' | 'rejected';
+  stripe_onboarding_complete?: boolean;
   created_at: string;
   updated_at: string;
 }
