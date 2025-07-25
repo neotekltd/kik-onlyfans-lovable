@@ -73,7 +73,7 @@ async function startServer() {
   });
 
   // Start server
-  const port = 3000;
+  const port = 8080;
   server.listen(port, '0.0.0.0', () => {
     console.log(`Development server running on http://localhost:${port}`);
   });
