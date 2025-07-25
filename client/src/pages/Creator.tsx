@@ -7,9 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DollarSign, Users, TrendingUp, Plus } from 'lucide-react';
 import MainLayout from '@/layouts/MainLayout';
 import PostForm from '@/components/PostForm';
+import CreatorFeeExpiredAlert from '@/components/CreatorFeeExpiredAlert';
 
 const Creator: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, creatorProfile } = useAuth();
   const { stats, loading: statsLoading } = useCreatorStats();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -28,6 +29,8 @@ const Creator: React.FC = () => {
     );
   }
 
+  const isPlatformFeeActive = creatorProfile?.is_platform_fee_active;
+
   return (
     <MainLayout>
       <div className="p-8">
@@ -35,6 +38,9 @@ const Creator: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Creator Studio</h1>
           <p className="text-gray-600 mt-2">Manage your content and track your performance</p>
         </div>
+
+        {/* Platform Fee Alert */}
+        <CreatorFeeExpiredAlert className="mb-6" />
 
         {/* Quick Stats */}
         {!statsLoading && (
@@ -93,7 +99,23 @@ const Creator: React.FC = () => {
           </TabsList>
 
           <TabsContent value="create" className="space-y-6">
-            <PostForm onPostCreated={handlePostCreated} />
+            {isPlatformFeeActive ? (
+              <PostForm onPostCreated={handlePostCreated} />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Creator Features Restricted</CardTitle>
+                  <CardDescription>
+                    Your creator features are restricted because your platform fee has not been paid.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-4">
+                    Please pay the $3 monthly platform fee to continue creating content.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="manage" className="space-y-6">

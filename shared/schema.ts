@@ -39,6 +39,8 @@ export const creator_profiles = pgTable("creator_profiles", {
   payout_email: text("payout_email"),
   tax_id: text("tax_id"),
   bank_account_info: jsonb("bank_account_info"),
+  platform_fee_paid_until: timestamp("platform_fee_paid_until"),
+  is_platform_fee_active: boolean("is_platform_fee_active").default(false),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at").defaultNow(),
 });

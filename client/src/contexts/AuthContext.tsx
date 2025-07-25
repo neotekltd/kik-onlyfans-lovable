@@ -33,6 +33,8 @@ interface CreatorProfile {
   payout_email?: string;
   tax_id?: string;
   bank_account_info?: any;
+  platform_fee_paid_until?: string;
+  is_platform_fee_active?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string) => {
     try {
+      // Fetch user profile
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -79,8 +82,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (profileError) throw profileError;
+
       setProfile(profileData);
 
+      // If user is a creator, fetch creator profile
       if (profileData.is_creator) {
         const { data: creatorData, error: creatorError } = await supabase
           .from('creator_profiles')
@@ -88,14 +93,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq('user_id', userId)
           .single();
 
-        if (creatorError) {
-          console.error('Error fetching creator profile:', creatorError);
-        } else {
-          setCreatorProfile(creatorData);
+        if (creatorError && creatorError.code !== 'PGRST116') {
+          throw creatorError;
         }
+
+        // Check if platform fee is expired
+        if (creatorData && creatorData.platform_fee_paid_until) {
+          const feeExpired = new Date(creatorData.platform_fee_paid_until) < new Date();
+          if (feeExpired && creatorData.is_platform_fee_active) {
+            // Update the platform fee status to inactive
+            await supabase
+              .from('creator_profiles')
+              .update({ is_platform_fee_active: false })
+              .eq('user_id', userId);
+            
+            creatorData.is_platform_fee_active = false;
+          }
+        }
+
+        setCreatorProfile(creatorData || null);
+      } else {
+        setCreatorProfile(null);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
+      setProfile(null);
+      setCreatorProfile(null);
     }
   };
 

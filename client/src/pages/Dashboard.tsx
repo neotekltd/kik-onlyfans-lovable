@@ -4,10 +4,12 @@ import { usePlatformStats } from '@/components/RealDataLoader';
 import ModernHeader from '@/components/ModernHeader';
 import ModernSidebar from '@/components/ModernSidebar';
 import ModernPostCard from '@/components/ModernPostCard';
+import CreatorFeePayment from '@/components/CreatorFeePayment';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Camera, Star, DollarSign, TrendingUp, Users, Heart, Plus } from 'lucide-react';
 
@@ -54,6 +56,7 @@ const Dashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('for-you');
   const [becomingCreator, setBecomingCreator] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -97,14 +100,27 @@ const Dashboard: React.FC = () => {
   const handleBecomeCreator = async () => {
     setBecomingCreator(true);
     try {
+      // First, create the creator account
       await becomeCreator(9.99, ['general']);
-      toast.success('Welcome to creators! Your creator account has been activated.');
+      
+      // Then show the payment dialog
+      setShowPaymentDialog(true);
     } catch (error) {
       console.error('Error becoming creator:', error);
       toast.error('Failed to activate creator account. Please try again.');
-    } finally {
       setBecomingCreator(false);
     }
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowPaymentDialog(false);
+    setBecomingCreator(false);
+    toast.success('Welcome to KikStars creators! Your creator account has been activated.');
+  };
+
+  const handlePaymentCancel = () => {
+    setShowPaymentDialog(false);
+    setBecomingCreator(false);
   };
 
   const handlePostAction = async (postId: string, action: string) => {
@@ -208,6 +224,10 @@ const Dashboard: React.FC = () => {
                       <p className="opacity-90">
                         Join thousands of creators sharing their passion and earning money
                       </p>
+                      <p className="text-sm mt-2 opacity-80">
+                        <DollarSign className="inline-block h-3 w-3 mr-1" />
+                        $3/month platform fee applies
+                      </p>
                     </div>
                     <Button
                       onClick={handleBecomeCreator}
@@ -281,6 +301,16 @@ const Dashboard: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {/* Creator Fee Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="sm:max-w-md">
+          <CreatorFeePayment 
+            onSuccess={handlePaymentSuccess}
+            onCancel={handlePaymentCancel}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
