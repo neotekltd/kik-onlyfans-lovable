@@ -33,10 +33,18 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* Public routes */}
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            
+            {/* Protected routes */}
             <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/home" element={
               <ProtectedRoute>
                 <Dashboard />
               </ProtectedRoute>
@@ -54,6 +62,11 @@ const App = () => (
             <Route path="/profile/:userId?" element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            } />
+            <Route path="/creator/:username" element={
+              <ProtectedRoute>
+                <Creator />
               </ProtectedRoute>
             } />
             <Route path="/creator" element={
@@ -81,7 +94,17 @@ const App = () => (
                 <Collections />
               </ProtectedRoute>
             } />
+            <Route path="/bookmarks" element={
+              <ProtectedRoute>
+                <Collections />
+              </ProtectedRoute>
+            } />
             <Route path="/live/:streamId?" element={
+              <ProtectedRoute>
+                <LiveStreamPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/live" element={
               <ProtectedRoute>
                 <LiveStreamPage />
               </ProtectedRoute>
@@ -96,6 +119,8 @@ const App = () => (
                 <AgeVerificationAdmin />
               </ProtectedRoute>
             } />
+            
+            {/* Catch all route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
