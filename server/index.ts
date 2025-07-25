@@ -1,14 +1,3 @@
-// Load environment variables first, before any other imports
-import 'dotenv/config';
-
-// Set default environment variables if they don't exist
-if (!process.env.VITE_SUPABASE_URL) {
-  process.env.VITE_SUPABASE_URL = 'https://igtkrpfpbbcciqyozuqb.supabase.co';
-}
-if (!process.env.VITE_SUPABASE_ANON_KEY) {
-  process.env.VITE_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlndGtycGZwYmJjY2lxeW96dXFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2OTIyOTcsImV4cCI6MjA2NjI2ODI5N30.Y1dJyTvdRyMCPMwPhXYBfq53Mx-rfm1n7lLQevQgvDs';
-}
-
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -70,7 +59,7 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = 5000;
+  const port = 4000;
   server.listen({
     port,
     host: "0.0.0.0",
