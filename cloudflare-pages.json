@@ -1,0 +1,23 @@
+{
+  "build": {
+    "command": "npm run build:client",
+    "destination": "dist/public",
+    "root_dir": "/",
+    "env_vars": {
+      "NODE_VERSION": "18.17.0",
+      "NPM_VERSION": "9.6.7"
+    }
+  },
+  "redirects": [
+    {
+      "source": "/api/*",
+      "destination": "https://your-backend-domain.com/api/:splat",
+      "status": 200
+    },
+    {
+      "source": "/*",
+      "destination": "/index.html",
+      "status": 200
+    }
+  ]
+}

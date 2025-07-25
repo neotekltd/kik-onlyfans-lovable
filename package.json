@@ -9,7 +9,7 @@
     "dev": "node --import tsx start-dev.js",
     "dev:full": "node --import tsx start-dev.js",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
-    "build:client": "vite build",
+    "build:client": "vite build && cp _redirects dist/public/ && cp _headers dist/public/",
     "build:server": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "preview": "vite preview --port 4173 --host",
     "deploy:pages": "wrangler pages deploy dist/public",
@@ -87,8 +87,6 @@
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
-    "@replit/vite-plugin-cartographer": "^0.2.5",
-    "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.1.3",
     "@types/connect-pg-simple": "^7.0.3",
