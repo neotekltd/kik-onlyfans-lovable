@@ -44,7 +44,9 @@ export default defineConfig({
         drop_debugger: true,
       },
     },
+    copyPublicDir: true,
   },
+  publicDir: path.resolve(import.meta.dirname, "client/public"),
   server: {
     proxy: {
       '/api': {

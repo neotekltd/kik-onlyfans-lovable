@@ -9,7 +9,7 @@
     "dev": "node --import tsx start-dev.js",
     "dev:full": "node --import tsx start-dev.js",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
-    "build:client": "vite build",
+    "build:client": "vite build && cp _redirects dist/public/ && cp _headers dist/public/",
     "build:server": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "preview": "vite preview --port 4173 --host",
     "deploy:pages": "wrangler pages deploy dist/public",
