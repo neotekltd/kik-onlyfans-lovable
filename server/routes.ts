@@ -430,6 +430,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stripe Connect routes (placeholder implementations)
+  app.post("/api/stripe/connect", async (req, res) => {
+    try {
+      const { creator_id } = req.body;
+      
+      // In a real app, this would create a Stripe Connect account
+      // For now, just return a mock response
+      res.json({
+        account_id: `acct_${Date.now()}`,
+        onboarding_url: `https://connect.stripe.com/setup/e/${Date.now()}`,
+        status: 'pending'
+      });
+    } catch (error) {
+      console.error("Error setting up Stripe Connect:", error);
+      res.status(500).json({ error: "Failed to setup Stripe Connect" });
+    }
+  });
+
+  app.post("/api/stripe/disconnect", async (req, res) => {
+    try {
+      const { creator_id } = req.body;
+      
+      // In a real app, this would disconnect the Stripe account
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error disconnecting Stripe:", error);
+      res.status(500).json({ error: "Failed to disconnect Stripe" });
+    }
+  });
+
+  // PPV Purchase route
+  app.post("/api/messages/purchase", async (req, res) => {
+    try {
+      const { buyer_id, seller_id, message_id, amount } = req.body;
+      
+      // In a real app, this would handle payment processing
+      res.json({
+        id: `purchase_${Date.now()}`,
+        buyer_id,
+        seller_id,
+        message_id,
+        amount,
+        status: 'completed',
+        created_at: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error processing PPV purchase:", error);
+      res.status(500).json({ error: "Failed to process purchase" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
