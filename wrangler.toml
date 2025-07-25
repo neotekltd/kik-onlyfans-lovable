@@ -1,0 +1,21 @@
+name = "kikstars-platform"
+compatibility_date = "2024-01-15"
+
+[env.production]
+name = "kikstars-production"
+
+[build]
+command = "npm run build:client"
+cwd = "."
+watch_dir = "client"
+
+[build.upload]
+format = "service-worker"
+
+# Environment variables (set these in Cloudflare dashboard)
+[vars]
+NODE_ENV = "production"
+
+# For Pages deployment
+[[pages_build_output_dir]]
+value = "dist/public"
