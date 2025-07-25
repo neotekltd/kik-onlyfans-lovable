@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ExternalLink, AlertCircle, CheckCircle, CreditCard } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ExternalLink, AlertCircle, CheckCircle, CreditCard, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -13,13 +13,22 @@ interface StripeConnectSetupProps {
 
 const StripeConnectSetup: React.FC<StripeConnectSetupProps> = ({ onComplete }) => {
   const [loading, setLoading] = useState(false);
-  const { user, creatorProfile, refreshProfile } = useAuth();
+  const { user, profile, creatorProfile, refreshProfile } = useAuth();
   
   // Check if the creator has already connected their Stripe account
   const isStripeConnected = creatorProfile?.stripe_account_id;
+  
+  // Check if the creator is verified
+  const isVerified = profile?.is_verified || profile?.verification_status === 'verified';
 
   const handleConnectStripe = async () => {
     if (!user) return;
+    
+    // Prevent unverified creators from connecting Stripe
+    if (!isVerified) {
+      toast.error('You must be verified to connect your Stripe account');
+      return;
+    }
     
     setLoading(true);
     try {
@@ -98,6 +107,17 @@ const StripeConnectSetup: React.FC<StripeConnectSetupProps> = ({ onComplete }) =
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!isVerified && (
+          <Alert variant="destructive">
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle>Verification Required</AlertTitle>
+            <AlertDescription>
+              You must complete the verification process before connecting your Stripe account. 
+              This ensures compliance with payment regulations and protects both creators and users.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         {isStripeConnected ? (
           <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
             <div className="flex items-start gap-2">
@@ -167,7 +187,7 @@ const StripeConnectSetup: React.FC<StripeConnectSetupProps> = ({ onComplete }) =
         ) : (
           <Button 
             onClick={handleConnectStripe} 
-            disabled={loading}
+            disabled={loading || !isVerified}
             className="w-full flex items-center gap-2"
           >
             {loading ? (
@@ -178,7 +198,7 @@ const StripeConnectSetup: React.FC<StripeConnectSetupProps> = ({ onComplete }) =
             ) : (
               <>
                 <CreditCard className="h-4 w-4" />
-                Connect Stripe Account
+                {isVerified ? 'Connect Stripe Account' : 'Verification Required'}
               </>
             )}
           </Button>

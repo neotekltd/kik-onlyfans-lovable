@@ -9,6 +9,7 @@ import MainLayout from '@/layouts/MainLayout';
 import PostForm from '@/components/PostForm';
 import CreatorFeeExpiredAlert from '@/components/CreatorFeeExpiredAlert';
 import StripeConnectSetup from '@/components/StripeConnectSetup';
+import VerificationStatus from '@/components/VerificationStatus';
 
 const Creator: React.FC = () => {
   const { profile, creatorProfile } = useAuth();
@@ -32,6 +33,7 @@ const Creator: React.FC = () => {
 
   const isPlatformFeeActive = creatorProfile?.is_platform_fee_active;
   const isStripeConnected = creatorProfile?.stripe_account_id && creatorProfile?.stripe_onboarding_complete;
+  const isVerified = profile?.is_verified || profile?.verification_status === 'verified';
 
   return (
     <MainLayout>
@@ -43,6 +45,13 @@ const Creator: React.FC = () => {
 
         {/* Platform Fee Alert */}
         <CreatorFeeExpiredAlert className="mb-6" />
+
+        {/* Verification Status */}
+        {!isVerified && (
+          <div className="mb-6">
+            <VerificationStatus />
+          </div>
+        )}
 
         {/* Quick Stats */}
         {!statsLoading && (
@@ -190,7 +199,9 @@ const Creator: React.FC = () => {
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-gray-500">
-                      Connect your Stripe account to manage payments and view earnings.
+                      {isVerified ? 
+                        'Connect your Stripe account to manage payments and view earnings.' : 
+                        'Complete verification to connect your Stripe account and manage payments.'}
                     </p>
                   </div>
                 )}

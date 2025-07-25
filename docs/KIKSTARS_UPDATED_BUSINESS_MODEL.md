@@ -42,10 +42,11 @@ This document outlines the key changes to our business model, implementation req
 ### Technical Requirements
 
 1. **Stripe Connect Integration**
-   - Allow creators to connect their own Stripe accounts
+   - Allow **verified** creators to connect their own Stripe accounts
    - Direct payment flow from fans to creators
    - Automated monthly platform fee collection
    - Compliance with Stripe Connect requirements
+   - **Verification requirement**: Creators must complete identity verification before connecting Stripe
 
 2. **Platform Fee Management**
    - Monthly billing system for creator fees
@@ -143,6 +144,7 @@ This document outlines the key changes to our business model, implementation req
 
 4. **Regulatory Compliance**
    - Adult content payment processing has additional requirements
+   - **Identity verification**: Strict verification process required before allowing Stripe Connect
    - Mitigation: Thorough legal review and compliance checks
 
 ## Success Metrics
