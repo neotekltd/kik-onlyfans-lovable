@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { profiles, creator_profiles, posts, messages, type Profile, type InsertProfile, type CreatorProfile, type InsertCreatorProfile, type Post, type InsertPost, type Message, type InsertMessage } from "@shared/schema";
+import { profiles, creator_profiles, posts, messages, user_subscriptions, tips, type Profile, type InsertProfile, type CreatorProfile, type InsertCreatorProfile, type Post, type InsertPost, type Message, type InsertMessage, type UserSubscription, type Tip } from "@shared/schema";
 import { eq, desc, and, or } from "drizzle-orm";
 
 export interface IStorage {
@@ -27,6 +27,16 @@ export interface IStorage {
   getMessages(userId1: string, userId2: string, limit?: number): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
   markMessageAsRead(id: string): Promise<Message>;
+  
+  // Subscription operations
+  createSubscription(subscriberId: string, creatorId: string, amount: number): Promise<UserSubscription>;
+  getUserSubscriptions(userId: string): Promise<UserSubscription[]>;
+  
+  // Tips operations
+  createTip(tipperId: string, creatorId: string, amount: number, message?: string): Promise<Tip>;
+  
+  // Analytics operations
+  getCreatorAnalytics(creatorId: string): Promise<any>;
   
   // General operations
   getCreators(limit?: number): Promise<Profile[]>;
@@ -154,6 +164,52 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .limit(limit);
+  }
+}
+
+  // Subscription operations
+  async createSubscription(subscriberId: string, creatorId: string, amount: number): Promise<UserSubscription> {
+    const result = await db.insert(user_subscriptions).values({
+      subscriber_id: subscriberId,
+      creator_id: creatorId,
+      amount_paid: amount,
+      status: 'active'
+    }).returning();
+    
+    return result[0];
+  }
+
+  async getUserSubscriptions(userId: string): Promise<UserSubscription[]> {
+    return await db.select().from(user_subscriptions)
+      .where(eq(user_subscriptions.subscriber_id, userId))
+      .orderBy(desc(user_subscriptions.created_at));
+  }
+
+  // Tips operations
+  async createTip(tipperId: string, creatorId: string, amount: number, message?: string): Promise<Tip> {
+    const result = await db.insert(tips).values({
+      tipper_id: tipperId,
+      creator_id: creatorId,
+      amount,
+      message: message || null
+    }).returning();
+    
+    return result[0];
+  }
+
+  // Analytics operations
+  async getCreatorAnalytics(creatorId: string): Promise<any> {
+    const [creatorProfile] = await db.select().from(creator_profiles)
+      .where(eq(creator_profiles.user_id, creatorId));
+    
+    return {
+      total_earnings: creatorProfile?.total_earnings || 0,
+      total_subscribers: 0,
+      total_posts: 0,
+      monthly_earnings: (creatorProfile?.total_earnings || 0) * 0.8,
+      new_subscribers_this_month: 0,
+      total_tips: 0
+    };
   }
 }
 

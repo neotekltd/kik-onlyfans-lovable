@@ -252,15 +252,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { subscriber_id, creator_id, amount_paid } = req.body;
       
-      // Simplified subscription creation (in real app would handle payment processing)
-      res.json({ 
-        id: `sub_${Date.now()}`,
-        subscriber_id,
-        creator_id,
-        amount_paid,
-        status: 'active',
-        created_at: new Date().toISOString()
-      });
+      const subscription = await storage.createSubscription(subscriber_id, creator_id, amount_paid);
+      res.json(subscription);
     } catch (error) {
       console.error("Error creating subscription:", error);
       res.status(500).json({ error: "Failed to create subscription" });
@@ -269,8 +262,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/subscriptions/:userId", async (req, res) => {
     try {
-      // Placeholder - would fetch user's subscriptions
-      res.json([]);
+      const subscriptions = await storage.getUserSubscriptions(req.params.userId);
+      res.json(subscriptions);
     } catch (error) {
       console.error("Error fetching subscriptions:", error);
       res.status(500).json({ error: "Failed to fetch subscriptions" });
@@ -282,15 +275,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { tipper_id, creator_id, amount, message } = req.body;
       
-      // Simplified tip creation (in real app would handle payment processing)
-      res.json({
-        id: `tip_${Date.now()}`,
-        tipper_id,
-        creator_id,
-        amount,
-        message,
-        created_at: new Date().toISOString()
-      });
+      const tip = await storage.createTip(tipper_id, creator_id, amount, message);
+      res.json(tip);
     } catch (error) {
       console.error("Error creating tip:", error);
       res.status(500).json({ error: "Failed to create tip" });
