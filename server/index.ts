@@ -60,11 +60,7 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 3000; // Changed from 4000
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    // Remove reusePort option as it's causing ENOTSUP error
-  }, () => {
+  server.listen(port, () => {
     log(`serving on port ${port}`);
   });
 })();
