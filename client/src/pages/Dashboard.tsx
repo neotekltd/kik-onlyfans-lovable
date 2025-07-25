@@ -61,14 +61,19 @@ const Dashboard: React.FC = () => {
         // Fetch recent published posts
         const postsResponse = await fetch('/api/posts');
         const postsData = await postsResponse.json();
-        setPosts(postsData || []);
+        // Ensure postsData is an array before setting it
+        setPosts(Array.isArray(postsData) ? postsData : []);
 
         // Fetch creators
         const creatorsResponse = await fetch('/api/creators');
         const creatorsData = await creatorsResponse.json();
-        setCreators(creatorsData || []);
+        // Ensure creatorsData is an array before setting it
+        setCreators(Array.isArray(creatorsData) ? creatorsData : []);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        // Set empty arrays on error
+        setPosts([]);
+        setCreators([]);
       } finally {
         setLoading(false);
       }
@@ -78,21 +83,21 @@ const Dashboard: React.FC = () => {
   }, []);
 
   // Filter posts based on search query
-  const filteredPosts = posts.filter(post => 
+  const filteredPosts = Array.isArray(posts) ? posts.filter(post => 
     !searchQuery || 
     post.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     post.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     post.profiles?.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     post.profiles?.username?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ) : [];
 
   // Filter creators based on search query
-  const filteredCreators = creators.filter(creator =>
+  const filteredCreators = Array.isArray(creators) ? creators.filter(creator =>
     !searchQuery ||
     creator.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     creator.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
     creator.bio?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ) : [];
 
   const handleBecomeCreator = async () => {
     setBecomingCreator(true);
