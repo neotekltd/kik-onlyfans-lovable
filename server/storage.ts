@@ -165,7 +165,6 @@ export class DatabaseStorage implements IStorage {
       )
       .limit(limit);
   }
-}
 
   // Subscription operations
   async createSubscription(subscriberId: string, creatorId: string, amount: number): Promise<UserSubscription> {
