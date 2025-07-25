@@ -40,7 +40,7 @@ if ! wrangler pages project list | grep -q "kikstars-platform"; then
 fi
 
 # Deploy the build
-wrangler pages deploy dist/public --project-name kikstars-platform --compatibility-date=2024-01-15
+wrangler pages deploy dist --project-name kikstars-platform --compatibility-date=2024-01-15
 
 if [ $? -eq 0 ]; then
     echo "🎉 Deployment successful!"

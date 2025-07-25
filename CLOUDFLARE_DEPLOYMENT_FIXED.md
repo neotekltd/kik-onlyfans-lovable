@@ -19,7 +19,7 @@
 ```
 Framework preset: None
 Build command: npm run build:client
-Build output directory: dist/public
+Build output directory: dist
 Root directory: (leave empty)
 Node.js version: 18.17.0
 ```
