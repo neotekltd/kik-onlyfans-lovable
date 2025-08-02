@@ -86,7 +86,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (profileError) throw profileError;
 
-      setProfile(profileData);
+      setProfile({
+        ...profileData,
+        bio: profileData.bio ?? undefined,
+        avatar_url: profileData.avatar_url ?? undefined,
+        cover_url: profileData.cover_url ?? undefined,
+        location: profileData.location ?? undefined,
+        website_url: profileData.website_url ?? undefined,
+        twitter_handle: profileData.twitter_handle ?? undefined,
+        instagram_handle: profileData.instagram_handle ?? undefined,
+      });
 
       // If user is a creator, fetch creator profile
       if (profileData.is_creator) {
@@ -100,21 +109,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw creatorError;
         }
 
-        // Check if platform fee is expired
-        if (creatorData && creatorData.platform_fee_paid_until) {
-          const feeExpired = new Date(creatorData.platform_fee_paid_until) < new Date();
-          if (feeExpired && creatorData.is_platform_fee_active) {
-            // Update the platform fee status to inactive
-            await supabase
-              .from('creator_profiles')
-              .update({ is_platform_fee_active: false })
-              .eq('user_id', userId);
-            
-            creatorData.is_platform_fee_active = false;
-          }
-        }
-
-        setCreatorProfile(creatorData || null);
+        setCreatorProfile(creatorData ? {
+          ...creatorData,
+          content_categories: creatorData.content_categories ?? undefined,
+          payout_email: creatorData.payout_email ?? undefined,
+          tax_id: creatorData.tax_id ?? undefined,
+          bank_account_info: creatorData.bank_account_info ?? undefined,
+        } : null);
       } else {
         setCreatorProfile(null);
       }
@@ -293,7 +294,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (creatorError) throw creatorError;
 
       setProfile(prev => prev ? { ...prev, is_creator: true } : null);
-      setCreatorProfile(creatorData);
+      setCreatorProfile({
+        ...creatorData,
+        content_categories: creatorData.content_categories ?? undefined,
+        payout_email: creatorData.payout_email ?? undefined,
+        tax_id: creatorData.tax_id ?? undefined,
+        bank_account_info: creatorData.bank_account_info ?? undefined,
+      });
 
       toast({
         title: "Creator account activated!",

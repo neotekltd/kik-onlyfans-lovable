@@ -9,16 +9,18 @@ type DashboardStats = {
   totalSpent: number;
   recentActivity: Array<{
     id: string;
-    user_id: string;
+    user_id: string | null;
     activity_type: string;
-    created_at: string;
-    metadata: Record<string, any>;
+    created_at: string | null;
+    metadata: any;
+    target_id?: string | null;
+    target_type?: string | null;
   }>;
   favoriteCreators: Array<{
     id: string;
     username: string;
     display_name: string;
-    avatar_url: string;
+    avatar_url: string | null;
   }>;
   // Creator stats
   totalEarnings: number;
@@ -34,14 +36,12 @@ type DashboardStats = {
   }>;
   topPosts: Array<{
     id: string;
-    title: string;
-    content: string;
+    title: string | null;
+    description: string | null;
     created_at: string;
     content_type: string;
-    content_analytics: Array<{
-      metric_type: string;
-      value: number;
-    }>;
+    view_count: number;
+    like_count: number;
   }>;
   monthlyData: Array<{
     month: string;
@@ -117,9 +117,9 @@ export const useUserDashboard = () => {
         if (payError) throw payError;
         if (activityError) throw activityError;
 
-        // Fetch favorite creators
+        // Fetch favorite creators from profiles table
         const { data: favorites, error: favError } = await supabase
-          .from('creator_profiles')
+          .from('profiles')
           .select('id, username, display_name, avatar_url')
           .in('id', (subscriptions || []).map(s => s.creator_id))
           .limit(5);
@@ -149,17 +149,17 @@ export const useUserDashboard = () => {
               .from('revenue_records')
               .select('*')
               .eq('creator_id', user.id)
-              .gte('timestamp', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+              .gte('processed_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
             // Subscriber count
             supabase
               .from('user_subscriptions')
               .select('*', { count: 'exact' })
               .eq('creator_id', user.id)
               .eq('status', 'active'),
-            // Posts and metrics
+            // Posts only
             supabase
               .from('posts')
-              .select('*, content_analytics (*)')
+              .select('*')
               .eq('creator_id', user.id)
               .order('created_at', { ascending: false })
           ]);
@@ -168,22 +168,21 @@ export const useUserDashboard = () => {
           if (countError) throw countError;
           if (postsError) throw postsError;
 
-          // Calculate metrics
+          // Calculate metrics from post fields
           const totalViews = posts?.reduce((sum, post) => {
-            const viewMetric = post.content_analytics?.find(m => m.metric_type === 'view');
-            return sum + (viewMetric?.value || 0);
+            return sum + (post.view_count || 0);
           }, 0) || 0;
 
           const totalLikes = posts?.reduce((sum, post) => {
-            const likeMetric = post.content_analytics?.find(m => m.metric_type === 'like');
-            return sum + (likeMetric?.value || 0);
+            return sum + (post.like_count || 0);
           }, 0) || 0;
 
           const engagementRate = totalViews > 0 ? (totalLikes / totalViews) * 100 : 0;
 
           // Monthly earnings data
           const monthlyData = earnings?.reduce((acc, record) => {
-            const month = new Date(record.timestamp).toLocaleString('default', { month: 'short' });
+            const processedAt = record.processed_at || new Date().toISOString();
+            const month = new Date(processedAt).toLocaleString('default', { month: 'short' });
             const existing = acc.find(d => d.month === month);
             if (existing) {
               existing.earnings += record.amount;
@@ -207,7 +206,7 @@ export const useUserDashboard = () => {
 
           // Recent earnings data
           const recentEarnings = earnings?.map(record => ({
-            date: record.timestamp,
+            date: record.processed_at || new Date().toISOString(),
             amount: record.amount
           })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) || [];
 

@@ -114,7 +114,14 @@ const Profile: React.FC = () => {
           // Transform the data to match our interface
           const transformedProfile: UserProfile = {
             ...profileData,
-            creator_profiles: profileData.creator_profiles?.[0] || undefined
+            bio: profileData.bio ?? undefined,
+            avatar_url: profileData.avatar_url ?? undefined,
+            cover_url: profileData.cover_url ?? undefined,
+            location: profileData.location ?? undefined,
+            website_url: profileData.website_url ?? undefined,
+            twitter_handle: profileData.twitter_handle ?? undefined,
+            instagram_handle: profileData.instagram_handle ?? undefined,
+            creator_profiles: Array.isArray(profileData.creator_profiles) ? profileData.creator_profiles[0] : profileData.creator_profiles || undefined
           };
           setProfile(transformedProfile);
         }

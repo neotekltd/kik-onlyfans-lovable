@@ -93,7 +93,7 @@ const UserDashboardView: React.FC<UserDashboardViewProps> = ({
                           ? `Subscription: $${(Number(activity.metadata.amount_paid) / 100).toFixed(2)}` : 'Activity'}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {new Date(activity.created_at).toLocaleDateString()}
+                        {activity.created_at ? new Date(activity.created_at).toLocaleDateString() : 'Unknown date'}
                       </p>
                     </div>
                   </div>

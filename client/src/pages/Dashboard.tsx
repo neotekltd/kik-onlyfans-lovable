@@ -173,10 +173,10 @@ const Dashboard = () => {
       if (postForm.files.length > 0) {
         for (const file of postForm.files) {
           const fileName = `${user.id}/${Date.now()}-${Math.random()}.${file.name.split('.').pop()}`;
-          const { data } = await supabaseHelpers.uploadFile('media', file, fileName);
+          const uploadResult = await supabaseHelpers.uploadFile('media', file, fileName);
           
-          if (data) {
-            const publicUrl = supabaseHelpers.getPublicUrl('media', data.path);
+          if (uploadResult) {
+            const publicUrl = supabaseHelpers.getPublicUrl('media', uploadResult.path);
             mediaUrls.push(publicUrl);
           }
         }
