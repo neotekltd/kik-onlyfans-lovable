@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,24 +19,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-interface LiveStream {
-  id: string;
-  title: string;
-  description?: string;
-  is_active: boolean;
-  viewer_count: number;
-  stream_key?: string;
-  rtmp_url?: string;
-  hls_url?: string;
-  thumbnail_url?: string;
-  scheduled_start?: string;
-  actual_start?: string;
-  actual_end?: string;
-  max_viewers: number;
-  total_tips: number;
-  created_at: string;
-}
+import type { LiveStream } from '@/types/database';
 
 const LiveStreamManager: React.FC = () => {
   const { user, profile } = useAuth();
@@ -57,10 +39,12 @@ const LiveStreamManager: React.FC = () => {
   }, [user, profile]);
 
   const fetchStreams = async () => {
+    if (!user?.id) return;
+    
     const { data, error } = await supabase
       .from('live_streams')
       .select('*')
-      .eq('creator_id', user?.id)
+      .eq('creator_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -68,8 +52,28 @@ const LiveStreamManager: React.FC = () => {
       return;
     }
 
-    setStreams(data || []);
-    const active = data?.find(stream => stream.is_active);
+    const normalizedStreams: LiveStream[] = (data || []).map(stream => ({
+      id: stream.id,
+      title: stream.title,
+      description: stream.description || undefined,
+      creator_id: stream.creator_id || undefined,
+      is_active: stream.is_active || false,
+      viewer_count: stream.viewer_count || 0,
+      scheduled_start: stream.scheduled_start || undefined,
+      actual_start: stream.actual_start || undefined,
+      actual_end: stream.actual_end || undefined,
+      max_viewers: stream.max_viewers || 0,
+      total_tips: stream.total_tips || 0,
+      created_at: stream.created_at || new Date().toISOString(),
+      updated_at: stream.updated_at || undefined,
+      thumbnail_url: stream.thumbnail_url || undefined,
+      stream_key: stream.stream_key || undefined,
+      rtmp_url: stream.rtmp_url || undefined,
+      hls_url: stream.hls_url || undefined
+    }));
+
+    setStreams(normalizedStreams);
+    const active = normalizedStreams.find(stream => stream.is_active);
     if (active) {
       setActiveStream(active);
     }
@@ -92,7 +96,7 @@ const LiveStreamManager: React.FC = () => {
         .insert([{
           creator_id: user?.id,
           title: newStream.title,
-          description: newStream.description,
+          description: newStream.description || null,
           stream_key: streamKey,
           rtmp_url: rtmpUrl,
           hls_url: hls_url,
@@ -103,7 +107,27 @@ const LiveStreamManager: React.FC = () => {
 
       if (error) throw error;
 
-      setStreams([data, ...streams]);
+      const normalizedStream: LiveStream = {
+        id: data.id,
+        title: data.title,
+        description: data.description || undefined,
+        creator_id: data.creator_id || undefined,
+        is_active: data.is_active || false,
+        viewer_count: data.viewer_count || 0,
+        scheduled_start: data.scheduled_start || undefined,
+        actual_start: data.actual_start || undefined,
+        actual_end: data.actual_end || undefined,
+        max_viewers: data.max_viewers || 0,
+        total_tips: data.total_tips || 0,
+        created_at: data.created_at || new Date().toISOString(),
+        updated_at: data.updated_at || undefined,
+        thumbnail_url: data.thumbnail_url || undefined,
+        stream_key: data.stream_key || undefined,
+        rtmp_url: data.rtmp_url || undefined,
+        hls_url: data.hls_url || undefined
+      };
+
+      setStreams([normalizedStream, ...streams]);
       setNewStream({ title: '', description: '', scheduled_start: '' });
       toast.success('Live stream created successfully!');
     } catch (error) {
@@ -129,8 +153,28 @@ const LiveStreamManager: React.FC = () => {
 
       if (error) throw error;
 
-      setActiveStream(data);
-      setStreams(streams.map(s => s.id === streamId ? data : s));
+      const normalizedStream: LiveStream = {
+        id: data.id,
+        title: data.title,
+        description: data.description || undefined,
+        creator_id: data.creator_id || undefined,
+        is_active: data.is_active || false,
+        viewer_count: data.viewer_count || 0,
+        scheduled_start: data.scheduled_start || undefined,
+        actual_start: data.actual_start || undefined,
+        actual_end: data.actual_end || undefined,
+        max_viewers: data.max_viewers || 0,
+        total_tips: data.total_tips || 0,
+        created_at: data.created_at || new Date().toISOString(),
+        updated_at: data.updated_at || undefined,
+        thumbnail_url: data.thumbnail_url || undefined,
+        stream_key: data.stream_key || undefined,
+        rtmp_url: data.rtmp_url || undefined,
+        hls_url: data.hls_url || undefined
+      };
+
+      setActiveStream(normalizedStream);
+      setStreams(streams.map(s => s.id === streamId ? normalizedStream : s));
       toast.success('Live stream started!');
     } catch (error) {
       console.error('Error starting stream:', error);
@@ -152,8 +196,28 @@ const LiveStreamManager: React.FC = () => {
 
       if (error) throw error;
 
+      const normalizedStream: LiveStream = {
+        id: data.id,
+        title: data.title,
+        description: data.description || undefined,
+        creator_id: data.creator_id || undefined,
+        is_active: data.is_active || false,
+        viewer_count: data.viewer_count || 0,
+        scheduled_start: data.scheduled_start || undefined,
+        actual_start: data.actual_start || undefined,
+        actual_end: data.actual_end || undefined,
+        max_viewers: data.max_viewers || 0,
+        total_tips: data.total_tips || 0,
+        created_at: data.created_at || new Date().toISOString(),
+        updated_at: data.updated_at || undefined,
+        thumbnail_url: data.thumbnail_url || undefined,
+        stream_key: data.stream_key || undefined,
+        rtmp_url: data.rtmp_url || undefined,
+        hls_url: data.hls_url || undefined
+      };
+
       setActiveStream(null);
-      setStreams(streams.map(s => s.id === streamId ? data : s));
+      setStreams(streams.map(s => s.id === streamId ? normalizedStream : s));
       toast.success('Live stream ended');
     } catch (error) {
       console.error('Error ending stream:', error);
@@ -195,7 +259,7 @@ const LiveStreamManager: React.FC = () => {
                   </span>
                   <span className="flex items-center">
                     <DollarSign className="h-4 w-4 mr-1" />
-                    ${(activeStream.total_tips / 100).toFixed(2)} tips
+                    ${((activeStream.total_tips || 0) / 100).toFixed(2)} tips
                   </span>
                 </div>
               </div>
@@ -277,11 +341,11 @@ const LiveStreamManager: React.FC = () => {
                       <div className="flex items-center space-x-4 text-xs text-gray-500">
                         <span className="flex items-center">
                           <Eye className="h-3 w-3 mr-1" />
-                          Max: {stream.max_viewers}
+                          Max: {stream.max_viewers || 0}
                         </span>
                         <span className="flex items-center">
                           <DollarSign className="h-3 w-3 mr-1" />
-                          ${(stream.total_tips / 100).toFixed(2)}
+                          ${((stream.total_tips || 0) / 100).toFixed(2)}
                         </span>
                         {stream.scheduled_start && (
                           <span className="flex items-center">

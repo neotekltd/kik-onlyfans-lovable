@@ -39,6 +39,7 @@ export default defineConfig({
   },
   publicDir: path.resolve(import.meta.dirname, "client/public"),
   server: {
+    port: 8080,
     proxy: {
       '/api': {
         target: process.env.VITE_API_URL || 'http://localhost:3000',

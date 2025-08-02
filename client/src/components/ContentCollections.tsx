@@ -1,53 +1,30 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { 
-  FolderPlus, 
-  Folder, 
-  Image, 
-  Video, 
-  DollarSign,
   Plus,
-  Settings,
-  Eye,
-  Lock
+  Image,
+  Folder,
+  Lock,
+  Unlock,
+  DollarSign,
+  Grid
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import AccessRestriction from './AccessRestriction';
-
-interface Collection {
-  id: string;
-  title: string;
-  description?: string;
-  is_public: boolean;
-  price: number;
-  thumbnail_url?: string;
-  created_at: string;
-  post_count?: number;
-}
-
-interface Post {
-  id: string;
-  title?: string;
-  content_type: string;
-  thumbnail_url?: string;
-  created_at: string;
-}
+import type { Collection, Post } from '@/types/database';
 
 const ContentCollections: React.FC = () => {
   const { user, profile } = useAuth();
   const [collections, setCollections] = useState<Collection[]>([]);
-  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
-  const [collectionPosts, setCollectionPosts] = useState<Post[]>([]);
-  const [availablePosts, setAvailablePosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
+  const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
   const [newCollection, setNewCollection] = useState({
     title: '',
     description: '',
@@ -63,6 +40,8 @@ const ContentCollections: React.FC = () => {
   }, [user, profile]);
 
   const fetchCollections = async () => {
+    if (!user?.id) return;
+    
     try {
       const { data, error } = await supabase
         .from('content_collections')
@@ -70,55 +49,56 @@ const ContentCollections: React.FC = () => {
           *,
           collection_posts(count)
         `)
-        .eq('creator_id', user?.id)
+        .eq('creator_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const collectionsWithCount = data?.map(collection => ({
-        ...collection,
+      const collectionsWithCount: Collection[] = (data || []).map(collection => ({
+        id: collection.id,
+        title: collection.title,
+        description: collection.description || undefined,
+        is_public: collection.is_public || true,
+        price: collection.price || 0,
+        thumbnail_url: collection.thumbnail_url || undefined,
+        created_at: collection.created_at || new Date().toISOString(),
+        updated_at: collection.updated_at || new Date().toISOString(),
+        creator_id: collection.creator_id || user.id,
         post_count: collection.collection_posts?.[0]?.count || 0
-      })) || [];
+      }));
 
       setCollections(collectionsWithCount);
     } catch (error) {
       console.error('Error fetching collections:', error);
+      toast.error('Failed to load collections');
     }
   };
 
   const fetchAvailablePosts = async () => {
+    if (!user?.id) return;
+    
     try {
       const { data, error } = await supabase
         .from('posts')
         .select('id, title, content_type, thumbnail_url, created_at')
-        .eq('creator_id', user?.id)
+        .eq('creator_id', user.id)
         .eq('is_published', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      setAvailablePosts(data || []);
+      const normalizedPosts: Post[] = (data || []).map(post => ({
+        id: post.id,
+        title: post.title || undefined,
+        content_type: post.content_type,
+        thumbnail_url: post.thumbnail_url || undefined,
+        created_at: post.created_at
+      }));
+
+      setPosts(normalizedPosts);
     } catch (error) {
       console.error('Error fetching posts:', error);
-    }
-  };
-
-  const fetchCollectionPosts = async (collectionId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('collection_posts')
-        .select(`
-          posts(id, title, content_type, thumbnail_url, created_at)
-        `)
-        .eq('collection_id', collectionId)
-        .order('order_index', { ascending: true });
-
-      if (error) throw error;
-
-      const posts = data?.map(item => item.posts).filter(Boolean) || [];
-      setCollectionPosts(posts as Post[]);
-    } catch (error) {
-      console.error('Error fetching collection posts:', error);
+      toast.error('Failed to load posts');
     }
   };
 
@@ -135,22 +115,30 @@ const ContentCollections: React.FC = () => {
         .insert([{
           creator_id: user?.id,
           title: newCollection.title,
-          description: newCollection.description,
+          description: newCollection.description || null,
           is_public: newCollection.is_public,
-          price: newCollection.price * 100 // Convert to cents
+          price: newCollection.price
         }])
         .select()
         .single();
 
       if (error) throw error;
 
-      setCollections([{ ...data, post_count: 0 }, ...collections]);
-      setNewCollection({
-        title: '',
-        description: '',
-        is_public: true,
-        price: 0
-      });
+      const normalizedCollection: Collection = {
+        id: data.id,
+        title: data.title,
+        description: data.description || undefined,
+        is_public: data.is_public || true,
+        price: data.price || 0,
+        thumbnail_url: data.thumbnail_url || undefined,
+        created_at: data.created_at || new Date().toISOString(),
+        updated_at: data.updated_at || new Date().toISOString(),
+        creator_id: data.creator_id || user?.id || '',
+        post_count: 0
+      };
+
+      setCollections([normalizedCollection, ...collections]);
+      setNewCollection({ title: '', description: '', is_public: true, price: 0 });
       toast.success('Collection created successfully!');
     } catch (error) {
       console.error('Error creating collection:', error);
@@ -160,54 +148,32 @@ const ContentCollections: React.FC = () => {
     }
   };
 
-  const addPostToCollection = async (collectionId: string, postId: string) => {
+  const addPostsToCollection = async (collectionId: string) => {
+    if (selectedPosts.length === 0) {
+      toast.error('Please select posts to add');
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('collection_posts')
-        .insert([{
-          collection_id: collectionId,
-          post_id: postId,
-          order_index: collectionPosts.length
-        }]);
+        .insert(
+          selectedPosts.map((postId, index) => ({
+            collection_id: collectionId,
+            post_id: postId,
+            order_index: index
+          }))
+        );
 
       if (error) throw error;
 
-      await fetchCollectionPosts(collectionId);
-      await fetchCollections();
-      toast.success('Post added to collection');
+      setSelectedPosts([]);
+      setSelectedCollection(null);
+      fetchCollections(); // Refresh to update post counts
+      toast.success('Posts added to collection!');
     } catch (error) {
-      console.error('Error adding post to collection:', error);
-      toast.error('Failed to add post to collection');
-    }
-  };
-
-  const removePostFromCollection = async (collectionId: string, postId: string) => {
-    try {
-      const { error } = await supabase
-        .from('collection_posts')
-        .delete()
-        .eq('collection_id', collectionId)
-        .eq('post_id', postId);
-
-      if (error) throw error;
-
-      await fetchCollectionPosts(collectionId);
-      await fetchCollections();
-      toast.success('Post removed from collection');
-    } catch (error) {
-      console.error('Error removing post from collection:', error);
-      toast.error('Failed to remove post from collection');
-    }
-  };
-
-  const getContentIcon = (contentType: string) => {
-    switch (contentType) {
-      case 'video':
-        return <Video className="h-4 w-4" />;
-      case 'photo':
-        return <Image className="h-4 w-4" />;
-      default:
-        return <Image className="h-4 w-4" />;
+      console.error('Error adding posts to collection:', error);
+      toast.error('Failed to add posts to collection');
     }
   };
 
@@ -224,15 +190,11 @@ const ContentCollections: React.FC = () => {
   }
 
   return (
-    <AccessRestriction>
-      <div className="space-y-6">
+    <div className="space-y-6">
       {/* Create New Collection */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <FolderPlus className="h-5 w-5" />
-            <span>Create Collection</span>
-          </CardTitle>
+          <CardTitle>Create New Collection</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
@@ -245,178 +207,167 @@ const ContentCollections: React.FC = () => {
             value={newCollection.description}
             onChange={(e) => setNewCollection({ ...newCollection, description: e.target.value })}
           />
-          <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Switch
+              <input
+                type="radio"
+                id="public"
+                name="visibility"
                 checked={newCollection.is_public}
-                onCheckedChange={(checked) => setNewCollection({ ...newCollection, is_public: checked })}
+                onChange={() => setNewCollection({ ...newCollection, is_public: true })}
               />
-              <span className="text-sm">Public collection</span>
+              <label htmlFor="public" className="flex items-center text-sm">
+                <Unlock className="h-4 w-4 mr-1" />
+                Public
+              </label>
             </div>
             <div className="flex items-center space-x-2">
-              <DollarSign className="h-4 w-4" />
-              <Input
-                type="number"
-                placeholder="0"
-                value={newCollection.price}
-                onChange={(e) => setNewCollection({ ...newCollection, price: parseFloat(e.target.value) || 0 })}
-                className="w-20"
-                min="0"
-                step="1"
+              <input
+                type="radio"
+                id="private"
+                name="visibility"
+                checked={!newCollection.is_public}
+                onChange={() => setNewCollection({ ...newCollection, is_public: false })}
               />
-              <span className="text-sm text-gray-500">USD</span>
+              <label htmlFor="private" className="flex items-center text-sm">
+                <Lock className="h-4 w-4 mr-1" />
+                Private
+              </label>
             </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <DollarSign className="h-4 w-4" />
+            <Input
+              type="number"
+              placeholder="Price (0 for free)"
+              value={newCollection.price}
+              onChange={(e) => setNewCollection({ ...newCollection, price: parseInt(e.target.value) || 0 })}
+              className="w-32"
+            />
           </div>
           <Button 
             onClick={createCollection} 
             disabled={isCreating || !newCollection.title.trim()}
             className="w-full"
           >
-            <FolderPlus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4 mr-2" />
             {isCreating ? 'Creating...' : 'Create Collection'}
           </Button>
         </CardContent>
       </Card>
 
-      {/* Collections List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Collections ({collections.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {collections.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Folder className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No collections yet. Create your first collection above!</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {collections.map((collection) => (
-                  <div
-                    key={collection.id}
-                    className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                      selectedCollection?.id === collection.id 
-                        ? 'border-blue-500 bg-blue-50' 
-                        : 'hover:bg-gray-50'
-                    }`}
-                    onClick={() => {
-                      setSelectedCollection(collection);
-                      fetchCollectionPosts(collection.id);
-                    }}
-                  >
-                    <div className="flex items-center justify-between">
+      {/* Collections Grid */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Your Collections</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {collections.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Folder className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No collections yet. Create your first collection above!</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {collections.map((collection) => (
+                <Card key={collection.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h4 className="font-medium">{collection.title}</h4>
-                          {collection.is_public ? (
-                            <Eye className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <Lock className="h-4 w-4 text-gray-500" />
-                          )}
-                          {collection.price > 0 && (
-                            <Badge variant="secondary">
-                              ${(collection.price / 100).toFixed(2)}
-                            </Badge>
-                          )}
-                        </div>
+                        <h4 className="font-medium text-lg mb-1">{collection.title}</h4>
                         {collection.description && (
                           <p className="text-sm text-gray-600 mb-2">{collection.description}</p>
                         )}
-                        <p className="text-xs text-gray-500">
-                          {collection.post_count} posts • Created {new Date(collection.created_at).toLocaleDateString()}
-                        </p>
+                        <div className="flex items-center space-x-2 text-xs text-gray-500">
+                          <Badge variant={collection.is_public ? "default" : "secondary"}>
+                            {collection.is_public ? (
+                              <><Unlock className="h-3 w-3 mr-1" /> Public</>
+                            ) : (
+                              <><Lock className="h-3 w-3 mr-1" /> Private</>
+                            )}
+                          </Badge>
+                          <span>{collection.post_count || 0} posts</span>
+                          {collection.price && collection.price > 0 && (
+                            <span className="flex items-center">
+                              <DollarSign className="h-3 w-3" />
+                              {(collection.price / 100).toFixed(2)}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <Button size="sm" variant="ghost">
-                        <Settings className="h-4 w-4" />
-                      </Button>
                     </div>
-                  </div>
-                ))}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSelectedCollection(collection)}
+                      className="w-full"
+                    >
+                      <Grid className="h-4 w-4 mr-2" />
+                      Add Posts
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Posts Modal */}
+      {selectedCollection && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Add Posts to "{selectedCollection.title}"</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {posts.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No posts available to add.</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+                  {posts.map((post) => (
+                    <div key={post.id} className="flex items-center space-x-3 p-2 border rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedPosts.includes(post.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedPosts([...selectedPosts, post.id]);
+                          } else {
+                            setSelectedPosts(selectedPosts.filter(id => id !== post.id));
+                          }
+                        }}
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{post.title || 'Untitled'}</p>
+                        <p className="text-xs text-gray-500">{post.content_type}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={() => addPostsToCollection(selectedCollection.id)}
+                    disabled={selectedPosts.length === 0}
+                  >
+                    Add {selectedPosts.length} Posts
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedCollection(null);
+                      setSelectedPosts([]);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
-
-        {/* Selected Collection Posts */}
-        {selectedCollection && (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {selectedCollection.title} ({collectionPosts.length} posts)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {collectionPosts.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">
-                    <p>No posts in this collection yet.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {collectionPosts.map((post) => (
-                      <div
-                        key={post.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <div className="flex items-center space-x-3">
-                          {getContentIcon(post.content_type)}
-                          <div>
-                            <p className="font-medium text-sm">
-                              {post.title || `${post.content_type} post`}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {new Date(post.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => removePostFromCollection(selectedCollection.id, post.id)}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Add Posts Section */}
-                <div className="border-t pt-4">
-                  <h5 className="font-medium mb-3">Add Posts to Collection</h5>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {availablePosts
-                      .filter(post => !collectionPosts.some(cp => cp.id === post.id))
-                      .map((post) => (
-                        <div
-                          key={post.id}
-                          className="flex items-center justify-between p-2 border rounded"
-                        >
-                          <div className="flex items-center space-x-2">
-                            {getContentIcon(post.content_type)}
-                            <span className="text-sm">
-                              {post.title || `${post.content_type} post`}
-                            </span>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => addPostToCollection(selectedCollection.id, post.id)}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      )}
     </div>
-    </AccessRestriction>
   );
 };
 
