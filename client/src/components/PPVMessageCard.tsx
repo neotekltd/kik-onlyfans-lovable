@@ -53,8 +53,9 @@ const PPVMessageCard: React.FC<PPVMessageCardProps> = ({
         .insert({
           buyer_id: user.id,
           seller_id: message.sender_id,
-          message_id: message.id,
-          amount: message.ppv_price,
+          item_id: message.id,
+          item_type: 'message',
+          amount: message.ppv_price || 0,
         });
         
       if (error) throw error;

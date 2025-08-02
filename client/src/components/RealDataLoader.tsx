@@ -103,27 +103,27 @@ export const useRealUserActivity = (userId?: string) => {
         const { data: likesData } = await supabase
           .from('post_likes')
           .select('created_at')
-          .eq('user_id', targetUserId)
+          .eq('user_id', targetUserId || '')
           .order('created_at', { ascending: false })
           .limit(10);
 
         const { data: commentsData } = await supabase
           .from('post_comments')
           .select('created_at, content')
-          .eq('user_id', targetUserId)
+          .eq('user_id', targetUserId || '')
           .order('created_at', { ascending: false })
           .limit(5);
 
         const { data: subscriptionsData } = await supabase
           .from('user_subscriptions')
           .select('created_at, creator_id, amount_paid')
-          .eq('subscriber_id', targetUserId)
+          .eq('subscriber_id', targetUserId || '')
           .eq('status', 'active');
 
         const { data: tipsData } = await supabase
           .from('tips')
           .select('created_at, amount, creator_id')
-          .eq('tipper_id', targetUserId)
+          .eq('tipper_id', targetUserId || '')
           .order('created_at', { ascending: false })
           .limit(5);
 

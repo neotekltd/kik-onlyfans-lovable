@@ -99,8 +99,7 @@ const PPVMessageForm: React.FC<PPVMessageFormProps> = ({ recipientId, onMessageS
         .getPublicUrl(fileName);
       
       // 3. Create the message
-      const messageType = selectedFile.type.startsWith('image/') ? 'image' : 
-                         selectedFile.type.startsWith('video/') ? 'video' : 'file';
+      const messageType: 'text' | 'media' | 'ppv' = isPPV ? 'ppv' : 'media';
       
       const { error: messageError } = await supabase
         .from('messages')

@@ -1,17 +1,27 @@
 import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/components/ui/use-toast';
-import { Users, DollarSign, Image as ImageIcon, Send, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { 
+  Send, 
+  Users, 
+  DollarSign, 
+  Image, 
+  Video, 
+  Upload,
+  X
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { validateFile } from '@/lib/validations';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/use-toast';
+import type { Database } from '@/integrations/supabase/types';
+
+type MessageType = Database['public']['Enums']['message_type'];
 
 interface Subscriber {
   id: string;
@@ -22,64 +32,64 @@ interface Subscriber {
   subscription_start_date: string;
 }
 
-interface MassMessageFormProps {
-  onMessageSent?: () => void;
-}
-
-const MassMessageForm: React.FC<MassMessageFormProps> = ({ onMessageSent }) => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [content, setContent] = useState('');
-  const [isPPV, setIsPPV] = useState(false);
-  const [price, setPrice] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
+const MassMessageForm: React.FC = () => {
+  const { user, profile } = useAuth();
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
-  const [targetAudience, setTargetAudience] = useState<'all' | 'active' | 'new'>('all');
-  const [loadingSubscribers, setLoadingSubscribers] = useState(false);
+  const [selectedSubscribers, setSelectedSubscribers] = useState<string[]>([]);
+  const [messageContent, setMessageContent] = useState('');
+  const [messageType, setMessageType] = useState<MessageType>('text');
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaUrl, setMediaUrl] = useState<string>('');
+  const [isPPV, setIsPPV] = useState(false);
+  const [ppvPrice, setPpvPrice] = useState(0);
+  const [isSending, setIsSending] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Fetch subscribers when the dialog opens
   useEffect(() => {
-    if (open && user) {
+    if (user && profile?.is_creator) {
       fetchSubscribers();
     }
-  }, [open, user]);
+  }, [user, profile]);
 
   const fetchSubscribers = async () => {
-    if (!user) return;
+    if (!user?.id) return;
     
-    setLoadingSubscribers(true);
     try {
-      // Get all subscribers
-      const { data, error } = await supabase
+      // First get subscription data
+      const { data: subscriptions, error: subsError } = await supabase
         .from('user_subscriptions')
-        .select(`
-          subscriber_id,
-          status,
-          start_date,
-          profiles:subscriber_id (
-            id,
-            username,
-            display_name,
-            avatar_url
-          )
-        `)
+        .select('subscriber_id, status, start_date')
         .eq('creator_id', user.id)
         .eq('status', 'active');
         
-      if (error) throw error;
+      if (subsError) throw subsError;
       
-      // Transform data to subscribers array
-      const subscribersData = data.map(sub => ({
-        id: sub.subscriber_id,
-        username: sub.profiles.username,
-        display_name: sub.profiles.display_name,
-        avatar_url: sub.profiles.avatar_url,
-        subscription_status: sub.status,
-        subscription_start_date: sub.start_date
-      }));
+      if (!subscriptions?.length) {
+        setSubscribers([]);
+        return;
+      }
+
+      // Then get profile data for those subscribers
+      const subscriberIds = subscriptions.map(sub => sub.subscriber_id);
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url')
+        .in('id', subscriberIds);
+        
+      if (profilesError) throw profilesError;
+      
+      // Combine the data
+      const subscribersData: Subscriber[] = subscriptions.map(sub => {
+        const profile = profiles?.find(p => p.id === sub.subscriber_id);
+        return {
+          id: sub.subscriber_id,
+          username: profile?.username || '',
+          display_name: profile?.display_name || '',
+          avatar_url: profile?.avatar_url || undefined,
+          subscription_status: sub.status,
+          subscription_start_date: sub.start_date
+        };
+      });
       
       setSubscribers(subscribersData);
     } catch (error) {
@@ -89,124 +99,117 @@ const MassMessageForm: React.FC<MassMessageFormProps> = ({ onMessageSent }) => {
         description: "Please try again",
         variant: "destructive",
       });
-    } finally {
-      setLoadingSubscribers(false);
     }
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null;
-    
-    if (file) {
-      const validation = validateFile(file);
-      if (!validation.valid) {
-        toast({
-          title: "Invalid file",
-          description: validation.error,
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      setSelectedFile(file);
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  const handleFileUpload = async (file: File) => {
+    if (!file || !user?.id) return null;
 
-  const clearFile = () => {
-    setSelectedFile(null);
-    setPreviewUrl(null);
-  };
-
-  const getFilteredSubscribers = () => {
-    const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
-    switch (targetAudience) {
-      case 'new':
-        return subscribers.filter(sub => 
-          new Date(sub.subscription_start_date) > oneWeekAgo
-        );
-      case 'active':
-        return subscribers.filter(sub => 
-          sub.subscription_status === 'active'
-        );
-      case 'all':
-      default:
-        return subscribers;
-    }
-  };
-
-  const handleSendMassMessage = async () => {
-    if (!user) return;
-    
-    if (isPPV && (!price || parseFloat(price) <= 0)) {
-      toast({
-        title: "Invalid price",
-        description: "Please enter a valid price for your PPV message",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const filteredSubscribers = getFilteredSubscribers();
-    
-    if (filteredSubscribers.length === 0) {
-      toast({
-        title: "No subscribers",
-        description: "There are no subscribers to send messages to",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setLoading(true);
-    
+    setIsUploading(true);
     try {
-      let mediaUrl = null;
+      const fileName = `${user.id}/${Date.now()}-${file.name}`;
       
-      // Upload file if selected
-      if (selectedFile) {
-        const fileExt = selectedFile.name.split('.').pop();
-        const fileName = `${user.id}/mass_messages/${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('messages')
-          .upload(fileName, selectedFile);
-          
-        if (uploadError) throw uploadError;
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('messages')
-          .getPublicUrl(fileName);
-          
-        mediaUrl = publicUrl;
-      }
-      
-      // Determine message type
-      const messageType = selectedFile
-        ? selectedFile.type.startsWith('image/') 
-          ? 'image' 
-          : selectedFile.type.startsWith('video/') 
-            ? 'video' 
-            : 'file'
-        : 'text';
-      
-      // Send message to each subscriber
-      const messages = filteredSubscribers.map(subscriber => ({
+      const { error: uploadError } = await supabase.storage
+        .from('messages')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('messages')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload media file",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleMediaUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setMediaFile(file);
+    
+    if (file.type.startsWith('image/')) {
+      setMessageType('media');
+    } else if (file.type.startsWith('video/')) {
+      setMessageType('media');
+    } else {
+      setMessageType('media');
+    }
+
+    const uploadedUrl = await handleFileUpload(file);
+    if (uploadedUrl) {
+      setMediaUrl(uploadedUrl);
+    }
+  };
+
+  const toggleSubscriberSelection = (subscriberId: string) => {
+    setSelectedSubscribers(prev => 
+      prev.includes(subscriberId)
+        ? prev.filter(id => id !== subscriberId)
+        : [...prev, subscriberId]
+    );
+  };
+
+  const selectAllSubscribers = () => {
+    setSelectedSubscribers(subscribers.map(s => s.id));
+  };
+
+  const clearSelection = () => {
+    setSelectedSubscribers([]);
+  };
+
+  const sendMassMessage = async () => {
+    if (!user?.id) return;
+    
+    if (selectedSubscribers.length === 0) {
+      toast({
+        title: "No recipients selected",
+        description: "Please select at least one subscriber",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!messageContent.trim() && !mediaUrl) {
+      toast({
+        title: "Empty message",
+        description: "Please enter a message or upload media",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isPPV && ppvPrice <= 0) {
+      toast({
+        title: "Invalid PPV price",
+        description: "PPV price must be greater than 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      // Create message objects for each subscriber
+      const messages = selectedSubscribers.map(subscriberId => ({
         sender_id: user.id,
-        recipient_id: subscriber.id,
-        content: content || null,
+        recipient_id: subscriberId,
+        content: messageContent.trim() || null,
         message_type: messageType,
-        media_url: mediaUrl,
+        media_url: mediaUrl || null,
         is_ppv: isPPV,
-        ppv_price: isPPV ? Math.round(parseFloat(price) * 100) : null,
+        ppv_price: isPPV ? Math.round(ppvPrice * 100) : null,
         is_read: false,
       }));
       
@@ -218,212 +221,221 @@ const MassMessageForm: React.FC<MassMessageFormProps> = ({ onMessageSent }) => {
       if (messagesError) throw messagesError;
       
       toast({
-        title: "Mass message sent",
-        description: `Successfully sent to ${filteredSubscribers.length} subscribers`,
+        title: "Messages sent!",
+        description: `Successfully sent message to ${selectedSubscribers.length} subscribers`,
       });
-      
+
       // Reset form
-      setContent('');
-      setPrice('');
-      setSelectedFile(null);
-      setPreviewUrl(null);
-      setOpen(false);
+      setMessageContent('');
+      setMediaFile(null);
+      setMediaUrl('');
+      setIsPPV(false);
+      setPpvPrice(0);
+      setSelectedSubscribers([]);
+      setMessageType('text');
       
-      // Callback
-      onMessageSent?.();
     } catch (error) {
-      console.error('Error sending mass message:', error);
+      console.error('Error sending messages:', error);
       toast({
         title: "Failed to send messages",
         description: "Please try again",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setIsSending(false);
     }
   };
 
+  if (!profile?.is_creator) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center">
+          <Send className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Creator Account Required</h3>
+          <p className="text-gray-600">You need a creator account to send mass messages.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Users className="h-4 w-4" />
-          <span>Mass Message</span>
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Send Mass Message to Subscribers
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-4 py-4">
-          {/* Target Audience */}
-          <div className="space-y-2">
-            <Label htmlFor="target-audience">Target Audience</Label>
-            <Select 
-              value={targetAudience} 
-              onValueChange={(value) => setTargetAudience(value as 'all' | 'active' | 'new')}
-            >
-              <SelectTrigger id="target-audience">
-                <SelectValue placeholder="Select audience" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Subscribers ({subscribers.length})</SelectItem>
-                <SelectItem value="active">
-                  Active Subscribers ({subscribers.filter(s => s.subscription_status === 'active').length})
-                </SelectItem>
-                <SelectItem value="new">
-                  New Subscribers (Last 7 Days) ({
-                    subscribers.filter(s => {
-                      const oneWeekAgo = new Date();
-                      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-                      return new Date(s.subscription_start_date) > oneWeekAgo;
-                    }).length
-                  })
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* Media Upload */}
-          <div className="space-y-2">
-            <Label>Media (Optional)</Label>
-            {previewUrl ? (
-              <div className="relative">
-                <div className="relative rounded-md overflow-hidden bg-black/5 border aspect-video flex items-center justify-center">
-                  {selectedFile?.type.startsWith('image/') ? (
-                    <img 
-                      src={previewUrl} 
-                      alt="Preview" 
-                      className="max-h-full max-w-full object-contain" 
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center p-4">
-                      <ImageIcon className="h-10 w-10 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground mt-2">{selectedFile?.name}</p>
-                    </div>
-                  )}
-                </div>
-                <Button 
-                  variant="destructive" 
-                  size="icon" 
-                  className="absolute top-2 right-2 h-6 w-6"
-                  onClick={clearFile}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center w-full">
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <ImageIcon className="w-8 h-8 mb-3 text-gray-400" />
-                    <p className="mb-2 text-sm text-gray-500">
-                      <span className="font-semibold">Click to upload</span> or drag and drop
-                    </p>
-                    <p className="text-xs text-gray-500">Images or videos (optional)</p>
-                  </div>
-                  <input 
-                    type="file" 
-                    className="hidden" 
-                    accept="image/*,video/*"
-                    onChange={handleFileSelect}
-                  />
-                </label>
-              </div>
-            )}
-          </div>
-          
-          {/* Message */}
-          <div className="space-y-2">
-            <Label htmlFor="message">Message</Label>
-            <Textarea
-              id="message"
-              placeholder="Write your message to all subscribers..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={4}
-            />
-          </div>
-          
-          {/* PPV Toggle */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="ppv-toggle">Pay-Per-View</Label>
-              <p className="text-sm text-muted-foreground">
-                Subscribers must pay to view this content
-              </p>
+    <div className="space-y-6">
+      {/* Subscribers List */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center">
+              <Users className="h-5 w-5 mr-2" />
+              Your Subscribers ({subscribers.length})
+            </span>
+            <div className="flex space-x-2">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={selectAllSubscribers}
+                disabled={subscribers.length === 0}
+              >
+                Select All
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={clearSelection}
+                disabled={selectedSubscribers.length === 0}
+              >
+                Clear
+              </Button>
             </div>
-            <Switch
-              id="ppv-toggle"
-              checked={isPPV}
-              onCheckedChange={setIsPPV}
-            />
-          </div>
-          
-          {/* Price Input */}
-          {isPPV && (
-            <div className="space-y-2">
-              <Label htmlFor="price">Price ($)</Label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="price"
-                  type="number"
-                  placeholder="5.00"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="pl-8"
-                  min="0.50"
-                  step="0.01"
-                />
-              </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {subscribers.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No active subscribers found.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto">
+              {subscribers.map((subscriber) => (
+                <div 
+                  key={subscriber.id}
+                  className={`flex items-center space-x-3 p-3 border rounded cursor-pointer transition-colors ${
+                    selectedSubscribers.includes(subscriber.id) 
+                      ? 'bg-blue-50 border-blue-300' 
+                      : 'hover:bg-gray-50'
+                  }`}
+                  onClick={() => toggleSubscriberSelection(subscriber.id)}
+                >
+                  <Checkbox 
+                    checked={selectedSubscribers.includes(subscriber.id)}
+                    onChange={() => toggleSubscriberSelection(subscriber.id)}
+                  />
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={subscriber.avatar_url} />
+                    <AvatarFallback>{subscriber.display_name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{subscriber.display_name}</p>
+                    <p className="text-xs text-gray-500 truncate">@{subscriber.username}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
           
-          {/* Subscriber Preview */}
-          <Card>
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm">
-                Message Preview ({getFilteredSubscribers().length} recipients)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="py-2">
-              {loadingSubscribers ? (
-                <p className="text-sm text-muted-foreground">Loading subscribers...</p>
-              ) : getFilteredSubscribers().length === 0 ? (
-                <p className="text-sm text-muted-foreground">No subscribers match the selected criteria</p>
-              ) : (
-                <p className="text-sm">
-                  This message will be sent to {getFilteredSubscribers().length} subscribers
-                </p>
+          {selectedSubscribers.length > 0 && (
+            <div className="mt-4 p-3 bg-blue-50 rounded">
+              <p className="text-sm text-blue-700">
+                {selectedSubscribers.length} subscriber{selectedSubscribers.length > 1 ? 's' : ''} selected
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Message Composer */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Compose Mass Message</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Message Type Selector */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Message Type</label>
+            <Select value={messageType} onValueChange={(value: MessageType) => setMessageType(value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">Text Message</SelectItem>
+                <SelectItem value="media">Media Message</SelectItem>
+                <SelectItem value="ppv">Pay-Per-View</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Message Content */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Message</label>
+            <Textarea
+              placeholder="Enter your message..."
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
+              rows={4}
+            />
+          </div>
+
+          {/* Media Upload */}
+          {(messageType === 'media' || messageType === 'ppv') && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Media</label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleMediaUpload}
+                  disabled={isUploading}
+                />
+                {isUploading && <span className="text-sm text-gray-500">Uploading...</span>}
+              </div>
+              {mediaFile && (
+                <div className="mt-2 flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">{mediaFile.name}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setMediaFile(null);
+                      setMediaUrl('');
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
-            </CardContent>
-          </Card>
-        </div>
-        
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
+            </div>
+          )}
+
+          {/* PPV Settings */}
+          {messageType === 'ppv' && (
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  checked={isPPV}
+                  onCheckedChange={(checked) => setIsPPV(checked === true)}
+                />
+                <label className="text-sm font-medium">Enable Pay-Per-View</label>
+              </div>
+              
+              {isPPV && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">PPV Price ($)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={ppvPrice}
+                    onChange={(e) => setPpvPrice(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Send Button */}
           <Button 
-            onClick={handleSendMassMessage}
-            disabled={loading || (!content && !selectedFile) || loadingSubscribers || getFilteredSubscribers().length === 0}
-            className="flex items-center gap-2"
+            onClick={sendMassMessage}
+            disabled={isSending || selectedSubscribers.length === 0 || isUploading}
+            className="w-full"
+            size="lg"
           >
-            {loading ? 'Sending...' : (
-              <>
-                <Send className="h-4 w-4" />
-                Send to {getFilteredSubscribers().length} Subscribers
-              </>
-            )}
+            <Send className="h-4 w-4 mr-2" />
+            {isSending ? 'Sending...' : `Send to ${selectedSubscribers.length} Subscriber${selectedSubscribers.length !== 1 ? 's' : ''}`}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
