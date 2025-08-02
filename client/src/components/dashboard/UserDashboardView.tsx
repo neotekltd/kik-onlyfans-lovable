@@ -87,17 +87,19 @@ const UserDashboardView: React.FC<UserDashboardViewProps> = ({
                     </div>
                     <div>
                       <p className="text-sm font-medium text-white">
-                        {'amount' in activity ? `Tip: $${(activity.amount / 100).toFixed(2)}` : 
-                         'amount_paid' in activity ? `Subscription: $${(activity.amount_paid / 100).toFixed(2)}` : 'Activity'}
+                        {activity.metadata && typeof activity.metadata === 'object' && 'amount' in activity.metadata 
+                          ? `Tip: $${(Number(activity.metadata.amount) / 100).toFixed(2)}` : 
+                         activity.metadata && typeof activity.metadata === 'object' && 'amount_paid' in activity.metadata 
+                          ? `Subscription: $${(Number(activity.metadata.amount_paid) / 100).toFixed(2)}` : 'Activity'}
                       </p>
                       <p className="text-xs text-gray-400">
                         {new Date(activity.created_at).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
-                  {'profiles' in activity && activity.profiles && (
+                  {activity.metadata && typeof activity.metadata === 'object' && 'creator_name' in activity.metadata && (
                     <Badge variant="secondary" className="text-xs">
-                      {activity.profiles.display_name}
+                      {String(activity.metadata.creator_name)}
                     </Badge>
                   )}
                 </div>

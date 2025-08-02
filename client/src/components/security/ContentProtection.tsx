@@ -186,12 +186,15 @@ const ProtectedContent: React.FC<ProtectedContentProps> = ({
     }, 500);
 
     // Detect console usage
-    let originalConsole = { ...console };
-    Object.keys(console).forEach(key => {
-      (console as any)[key] = (...args: any[]) => {
-        handleSecurityViolation('Console usage detected');
-        return originalConsole[key as keyof Console](...args);
-      };
+    const originalConsole = { ...console };
+    const consoleKeys = ['log', 'warn', 'error', 'info', 'debug'] as const;
+    consoleKeys.forEach(key => {
+      if (typeof console[key] === 'function') {
+        console[key] = (...args: any[]) => {
+          handleSecurityViolation('Console usage detected');
+          return (originalConsole[key] as any)(...args);
+        };
+      }
     });
   };
 
@@ -310,7 +313,7 @@ const ProtectedContent: React.FC<ProtectedContentProps> = ({
     }
 
     // Apply watermark
-    const watermark = watermarkText || `© ${user?.username || 'KikStars'} - ${new Date().getFullYear()}`;
+    const watermark = watermarkText || `© KikStars - ${new Date().getFullYear()}`;
     
     ctx.font = '20px Arial';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
@@ -331,7 +334,7 @@ const ProtectedContent: React.FC<ProtectedContentProps> = ({
     // Add user-specific watermark
     ctx.font = '12px Arial';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.fillText(`Viewed by: ${user?.username}`, canvas.width - 150, canvas.height - 20);
+    ctx.fillText(`Viewed by: ${user?.id || 'User'}`, canvas.width - 150, canvas.height - 20);
   };
 
   const unlockPPVContent = async () => {
@@ -366,12 +369,8 @@ const ProtectedContent: React.FC<ProtectedContentProps> = ({
           WebkitUserSelect: 'none',
           MozUserSelect: 'none',
           msUserSelect: 'none',
-          WebkitTouchCallout: 'none',
-          WebkitUserDrag: 'none',
-          KhtmlUserDrag: 'none',
-          MozUserDrag: 'none',
-          OUserDrag: 'none'
-        }}
+          WebkitTouchCallout: 'none'
+        } as React.CSSProperties}
       />
       
       {hasAccess && (

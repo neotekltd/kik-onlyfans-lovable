@@ -22,7 +22,7 @@ import {
   CheckCircle,
   AlertCircle,
   Wallet,
-  Bank,
+  Landmark,
   Shield
 } from 'lucide-react';
 
@@ -34,7 +34,7 @@ interface PaymentIntent {
   amount: number;
   currency: string;
   status: string;
-  client_secret: string;
+  client_secret: string | null;
 }
 
 interface Subscription {
@@ -146,10 +146,13 @@ const PaymentForm: React.FC<PaymentProcessorProps> = ({
         throw new Error(confirmError.message);
       }
 
-      if (paymentIntent.status === 'succeeded') {
+      if (paymentIntent.status === 'succeeded' && paymentIntent.client_secret) {
         // Process successful payment
         await processSuccessfulPayment(paymentIntent);
-        onSuccess?.(paymentIntent);
+        onSuccess?.({
+          ...paymentIntent,
+          client_secret: paymentIntent.client_secret
+        });
         
         // Show success message based on payment type
         const successMessages = {
@@ -585,7 +588,7 @@ const CreatorEarnings: React.FC = () => {
                   {earnings.last_payout_date ? new Date(earnings.last_payout_date).toLocaleDateString() : 'Never'}
                 </p>
               </div>
-              <Bank className="h-8 w-8 text-purple-400" />
+              <Landmark className="h-8 w-8 text-purple-400" />
             </div>
           </CardContent>
         </Card>

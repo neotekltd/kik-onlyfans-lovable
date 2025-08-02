@@ -29,7 +29,7 @@ import {
   Clock,
   Star,
   Lock,
-  Broadcast
+  Radio
 } from 'lucide-react';
 
 interface CreatorStats {
@@ -470,7 +470,7 @@ const CreatorDashboard: React.FC = () => {
               <Card className="bg-[#1e2029] border-[#2c2e36]">
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <Broadcast className="h-5 w-5 mr-2" />
+                    <Radio className="h-5 w-5 mr-2" />
                     Mass Message
                   </CardTitle>
                 </CardHeader>
