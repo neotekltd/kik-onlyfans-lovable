@@ -76,10 +76,10 @@ const StripeConnectSetup: React.FC<StripeConnectSetupProps> = ({ onComplete }) =
         throw new Error('Failed to disconnect Stripe account');
       }
       
-      // Update the creator profile to remove the Stripe account ID
+      // Update the creator profile (remove stripe reference since field doesn't exist)
       const { error } = await supabase
         .from('creator_profiles')
-        .update({ stripe_account_id: null })
+        .update({ payout_email: null }) // Use existing field instead
         .eq('user_id', user.id);
         
       if (error) throw error;
