@@ -5,6 +5,8 @@
     "build": "npm run build:client",
     "build:server": "esbuild server/index.ts --bundle --platform=node --outfile=dist/server.js --external:@supabase/supabase-js --external:postgres --external:drizzle-orm --external:express --external:cors --external:stripe --external:multer --external:sharp --target=node18",
     "build:client": "vite build --config vite.config.ts && cp _redirects dist/ && cp _headers dist/",
+    "build:dev": "vite build --mode development"
+
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "vite --host",
